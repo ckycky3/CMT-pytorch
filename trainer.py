@@ -9,16 +9,12 @@ from utils import logger
 from utils.metrics import cal_metrics
 from utils.utils import *
 from dataset import collate_fn
-from models import ChordLSTM_MusicTransformer as CLSTM_MT
-from models import ChordLSTM_BeatMusicTransformer as CLSTM_BMT
-from models import MusicTransformerCE as MTCE
-from models import BeatMusicTransformer as BMT
 
 x_fontdict = {'fontsize': 6,
-                     'verticalalignment': 'top',
-                     'horizontalalignment': 'left',
-                     'rotation': 'vertical',
-                     'rotation_mode': 'anchor'}
+             'verticalalignment': 'top',
+             'horizontalalignment': 'left',
+             'rotation': 'vertical',
+             'rotation_mode': 'anchor'}
 y_fontdict = {'fontsize': 6}
 
 
@@ -84,24 +80,16 @@ class BaseTrainer:
                 logger.info('adjusting learning rate from %.6f to %.6f' % (old_lr, new_lr))
 
 
-class MTTrainer(BaseTrainer):
+class C2MTtrainer(BaseTrainer):
     def __init__(self, asset_path, model, criterion, optimizer,
                  train_loader, eval_loader, test_loader,
                  config):
-        super(MTTrainer, self).__init__(asset_path, model, criterion, optimizer,
-                                        train_loader, eval_loader, test_loader,
-                                        config)
+        super(C2MTtrainer, self).__init__(asset_path, model, criterion, optimizer,
+                                          train_loader, eval_loader, test_loader,
+                                          config)
         # for logging
         self.losses = defaultdict(list)
         self.tf_logger = get_tflogger(asset_path)
-        if isinstance(model, torch.nn.DataParallel):
-            model = model.module
-        if isinstance(model, BMT) or isinstance(model, CLSTM_BMT):
-            self.beat = True
-        elif isinstance(model, MTCE) or isinstance(model, CLSTM_MT):
-            self.beat = False
-        else:
-            raise NotImplementedError()
 
     def train(self, **kwargs):
         # load model if exists
@@ -142,50 +130,33 @@ class MTTrainer(BaseTrainer):
 
         results = defaultdict(float)
         total_pitch_loss = 0.
-        total_beat_loss = 0.
+        total_rhythm_loss = 0.
         num_total = 0
         for i, data in enumerate(loader):
             # preprocessing and forwarding
-            if self.beat:
-                result_dict = self.model(data['beat'], data['pitch'][:, :-1],
-                                         data['chord'], False)
-                out = result_dict['pitch']
-                beat_out = result_dict['beat']
-                beat_out = beat_out.view(-1, beat_out.size(-1))
-            else:
-                result_dict = self.model(data['pitch'][:, :-1], data['chord'], False)
-                out = result_dict['output']
-            num_total += out[:, :, 0].numel()
-            out_view = out.view(-1, out.size(-1))
-            # num_total += beat_out[:, 0].numel()
+            result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
+                                     data['chord'], False)
+            rhythm_out = result_dict['rhythm']
+            rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
+            pitch_out = result_dict['pitch']
+            pitch_out = pitch_out.view(-1, pitch_out.size(-1))
+            num_total += pitch_out[:, :, 0].numel()
 
             # get loss & metric(accuracy)
-            if isinstance(self.criterion, tuple):
-                beat_criterion = self.criterion[0]
-                pitch_criterion = self.criterion[1]
-            else:
-                beat_criterion = self.criterion
-                pitch_criterion = self.criterion
-            pitch_loss = pitch_criterion(out_view, data['pitch'][:, 1:].contiguous().view(-1))
+            rhythm_criterion = self.criterion[0]
+            pitch_criterion = self.criterion[1]
+
+            rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
+            total_rhythm_loss += rhythm_loss.item()
+            pitch_loss = pitch_criterion(pitch_out, data['pitch'][:, 1:].contiguous().view(-1))
             total_pitch_loss += pitch_loss.item()
+            loss = pitch_loss + rhythm_loss
 
             result = dict()
-            result.update(cal_metrics(out_view, data['pitch'][:, 1:].contiguous().view(-1),
-                                      self.metrics, mode, name='pitch' if self.beat else None))
-
-
-            # pitch_loss = 0
-
-            # get beat loss & metric
-            if self.beat:
-                beat_loss = beat_criterion(beat_out, data['beat'][:, 1:].contiguous().view(-1))
-                total_beat_loss += beat_loss.item()
-                result.update(cal_metrics(beat_out, data['beat'][:, 1:].contiguous().view(-1),
-                                          self.metrics, mode, 'beat'))
-            else:
-                beat_loss = 0
-
-            loss = pitch_loss + beat_loss
+            result.update(cal_metrics(pitch_out, data['pitch'][:, 1:].contiguous().view(-1),
+                                      self.metrics, mode, name='pitch'))
+            result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
+                                      self.metrics, mode, name='rhythm'))
 
             for key, val in result.items():
                 results[key] += val
@@ -193,31 +164,26 @@ class MTTrainer(BaseTrainer):
             # do training operations
             if mode == 'train':
                 self._step(loss)
-                # self._step(beat_loss)
+                # self._step(rhythm_loss)
                 if self.verbose and self.current_step % 100 == 0:
                     logger.info("%d training steps" % self.current_step)
                     print_dict = {'nll': loss.item()}
-                    if self.beat:
-                        print_dict.update({
-                            'nll_pitch': pitch_loss,
-                            'nll_beat': beat_loss})
+                    print_dict.update({
+                        'nll_pitch': pitch_loss,
+                        'nll_rhythm': rhythm_loss})
                     print_result(print_dict, result)
 
         # logging epoch statistics and information
         results = {key: val / len(loader) for key, val in results.items()}
         footer = '/' + mode
-        if self.beat:
-            losses = {'nll' + footer: (total_beat_loss + total_pitch_loss) / len(loader),
-                      'nll_pitch' + footer: total_pitch_loss / len(loader),
-                      'nll_beat' + footer: total_beat_loss / len(loader)}
-        else:
-            losses = {'nll' + footer: total_pitch_loss / len(loader)}
+        losses = {'nll' + footer: (total_rhythm_loss + total_pitch_loss) / len(loader),
+                  'nll_pitch' + footer: total_pitch_loss / len(loader),
+                  'nll_rhythm' + footer: total_rhythm_loss / len(loader)}
         print_result(losses, results)
         tensorboard_logging_result(self.tf_logger, epoch, losses)
         tensorboard_logging_result(self.tf_logger, epoch, results)
 
-        self.losses[mode].append((total_beat_loss + total_pitch_loss) / len(loader))
-        # self.losses[mode].append(total_beat_loss / len(loader))
+        self.losses[mode].append((total_rhythm_loss + total_pitch_loss) / len(loader))
         if mode == 'eval':
             self.adjust_learning_rate()
 
@@ -233,15 +199,10 @@ class MTTrainer(BaseTrainer):
             model = self.model.module
         else:
             model = self.model
-        if self.beat:
-            prime_beat = batch['beat'][:, :self.config["num_prime"]]
-            result_dict = model.sampling(prime_beat, prime, batch['chord'],
-                                         self.config["topk"], self.config['attention_map'])
-            result_key = 'pitch'
-        else:
-            result_dict = model.sampling(prime, batch['chord'],
-                                         self.config["topk"], self.config['attention_map'])
-            result_key = 'output'
+        prime_rhythm = batch['rhythm'][:, :self.config["num_prime"]]
+        result_dict = model.sampling(prime_rhythm, prime, batch['chord'],
+                                     self.config["topk"], self.config['attention_map'])
+        result_key = 'pitch'
         pitch_idx = result_dict[result_key].cpu().numpy()
 
         logger.info("==========sampling result of epoch %03d==========" % epoch)
@@ -255,8 +216,7 @@ class MTTrainer(BaseTrainer):
             gt_chord = batch['chord'][:, :-1].cpu().numpy()
             sample_dict = {'pitch': pitch_idx[sample_id],
                            'chord': chord_array_to_dict(gt_chord[sample_id])}
-            if self.beat:
-                sample_dict['beat'] = result_dict['beat'][sample_id].cpu().numpy()
+            sample_dict['rhythm'] = result_dict['rhythm'][sample_id].cpu().numpy()
 
             with open(save_path.replace('.mid', '.pkl'), 'wb') as f_samp:
                 pickle.dump(sample_dict, f_samp)
@@ -272,8 +232,7 @@ class MTTrainer(BaseTrainer):
                                      'epoch%03d_groundtruth%02d.mid' % (epoch, sample_id))
             gt_dict = {'pitch': gt_pitch[sample_id, :-1],
                         'chord': chord_array_to_dict(gt_chord[sample_id])}
-            if self.beat:
-                gt_dict['beat'] = batch['beat'][sample_id, :-1].cpu().numpy()
+            gt_dict['rhythm'] = batch['rhythm'][sample_id, :-1].cpu().numpy()
             with open(gt_path.replace('.mid', '.pkl'), 'wb') as f_gt:
                 pickle.dump(gt_dict, f_gt)
             gt_instruments = pitch_to_midi(gt_pitch[sample_id, :-1], gt_chord[sample_id], model.frame_per_bar, gt_path)

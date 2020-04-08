@@ -10,9 +10,8 @@ from utils.hparams import HParams
 from utils.utils import make_save_dir, get_optimizer
 from losses import FocalLoss
 from dataset import get_loader
-from models import ChordLSTM_MusicTransformer, MusicTransformerCE
-from models import ChordLSTM_BeatMusicTransformer, BeatMusicTransformer
-from trainer import MTTrainer
+from models import ChordConditionedMusicTransformer
+from trainer import C2MTtrainer
 
 # hyperparameter - using argparse and parameter module
 parser = argparse.ArgumentParser()
@@ -22,7 +21,6 @@ parser.add_argument('--gpu_index', '-g', type=int, default="0", help='GPU index'
 parser.add_argument('--ngpu', type=int, default=4, help='0 = CPU.')
 parser.add_argument('--optim_name', type=str, default='adam')
 parser.add_argument('--lr_scheduler', type=str, default='exp')
-parser.add_argument('--model', type=str, default='CLSTM_MT')
 parser.add_argument('--pitch_loss', type=str, default=None)
 parser.add_argument('--restore_epoch', type=int, default=-1)
 parser.add_argument('--seed', type=int, default=1)
@@ -60,43 +58,28 @@ test_loader = get_loader(data_config, mode='test', ws=args.ws)
 
 # build graph, criterion and optimizer
 logger.info("build graph, criterion, optimizer and trainer")
-if args.model == 'CLSTM_MT':
-    model = ChordLSTM_MusicTransformer(**model_config)
-elif args.model == 'MTCE':
-    model = MusicTransformerCE(**model_config)
-elif args.model == 'CLSTM_BMT':
-    model = ChordLSTM_BeatMusicTransformer(**model_config)
-elif args.model == 'BMT':
-    model = BeatMusicTransformer(**model_config)
-else:
-    raise NotImplementedError()
+model = ChordConditionedMusicTransformer(**model_config)
 
 if args.ngpu > 1:
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 model.to(device)
 
 nll_criterion = nn.NLLLoss().to(device)
-if args.pitch_loss is not None:
-    if args.pitch_loss == 'focal':
-        pitch_criterion = FocalLoss(gamma=2).to(device)
-    else:
-        raise NotImplementedError()
-    criterion = (nll_criterion, pitch_criterion)
-else:
-    criterion = nll_criterion
+pitch_criterion = FocalLoss(gamma=2).to(device)
+criterion = (nll_criterion, pitch_criterion)
 
-if 'beat_lr' in config.experiment.keys():
-    beat_params = list()
+if 'rhythm_lr' in config.experiment.keys():
+    rhythm_params = list()
     pitch_params = list()
     param_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     for name, param in param_model.named_parameters():
-        if 'beat' in name:
-            beat_params.append(param)
+        if 'rhythm' in name:
+            rhythm_params.append(param)
         else:
             pitch_params.append(param)
-    beat_param_dict = {'params': beat_params, 'lr': config.experiment['beat_lr']}
+    rhythm_param_dict = {'params': rhythm_params, 'lr': config.experiment['rhythm_lr']}
     pitch_param_dict = {'params': pitch_params}
-    params = [beat_param_dict, pitch_param_dict]
+    params = [rhythm_param_dict, pitch_param_dict]
 else:
     params = model.parameters()
 
@@ -104,9 +87,9 @@ optimizer = get_optimizer(params, config.experiment['lr'],
                           config.optimizer, name=args.optim_name)
 
 # get trainer
-trainer = MTTrainer(asset_path, model, criterion, optimizer,
-                    train_loader, eval_loader, test_loader,
-                    exp_config)
+trainer = C2MTtrainer(asset_path, model, criterion, optimizer,
+                      train_loader, eval_loader, test_loader,
+                      exp_config)
 
 # start training - add additional train configuration
 logger.info("start training")

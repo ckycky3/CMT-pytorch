@@ -47,8 +47,8 @@ experiment:
   max_epoch: 3001
   num_sample: 5
   topk: 5
-  lr: 0.001
-  beat_lr: 0.000001
+  lr: 0.0001
+  rhythm_lr: 0.000001
   metrics:
     - 'accuracy'
   verbose: True
