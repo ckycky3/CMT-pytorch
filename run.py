@@ -1,5 +1,4 @@
 import os, random
-import datetime
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,7 +20,6 @@ parser.add_argument('--gpu_index', '-g', type=int, default="0", help='GPU index'
 parser.add_argument('--ngpu', type=int, default=4, help='0 = CPU.')
 parser.add_argument('--optim_name', type=str, default='adam')
 parser.add_argument('--lr_scheduler', type=str, default='exp')
-parser.add_argument('--pitch_loss', type=str, default=None)
 parser.add_argument('--restore_epoch', type=int, default=-1)
 parser.add_argument('--load_rhythm', dest='load_rhythm', action='store_true')
 parser.add_argument('--seed', type=int, default=1)
@@ -78,7 +76,7 @@ if 'rhythm_lr' in config.experiment.keys():
             rhythm_params.append(param)
         else:
             pitch_params.append(param)
-    rhythm_param_dict = {'params': rhythm_params, 'lr': config.experiment['rhythm_lr']}
+    rhythm_param_dict = {'params': rhythm_params, 'lr': 1e-6}
     pitch_param_dict = {'params': pitch_params}
     params = [rhythm_param_dict, pitch_param_dict]
 else:

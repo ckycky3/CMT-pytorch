@@ -139,7 +139,8 @@ class C2MTtrainer(BaseTrainer):
         num_total = 0
         for i, data in enumerate(loader):
             # preprocessing and forwarding
-            result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
+            # result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
+            result_dict = self.model(data['beat'], data['pitch'][:, :-1],
                                      data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
             rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
@@ -151,7 +152,8 @@ class C2MTtrainer(BaseTrainer):
             rhythm_criterion = self.criterion[0]
             pitch_criterion = self.criterion[1]
 
-            rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
+            # rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
+            rhythm_loss = rhythm_criterion(rhythm_out, data['beat'][:, 1:].contiguous().view(-1))
             total_rhythm_loss += rhythm_loss.item()
             pitch_loss = pitch_criterion(pitch_out, data['pitch'][:, 1:].contiguous().view(-1))
             total_pitch_loss += pitch_loss.item()
@@ -160,7 +162,8 @@ class C2MTtrainer(BaseTrainer):
             result = dict()
             result.update(cal_metrics(pitch_out, data['pitch'][:, 1:].contiguous().view(-1),
                                       self.metrics, mode, name='pitch'))
-            result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
+            # result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
+            result.update(cal_metrics(rhythm_out, data['beat'][:, 1:].contiguous().view(-1),
                                       self.metrics, mode, name='rhythm'))
 
             for key, val in result.items():
@@ -204,7 +207,8 @@ class C2MTtrainer(BaseTrainer):
             model = self.model.module
         else:
             model = self.model
-        prime_rhythm = batch['rhythm'][:, :self.config["num_prime"]]
+        # prime_rhythm = batch['rhythm'][:, :self.config["num_prime"]]
+        prime_rhythm = batch['beat'][:, :self.config["num_prime"]]
         result_dict = model.sampling(prime_rhythm, prime, batch['chord'],
                                      self.config["topk"], self.config['attention_map'])
         result_key = 'pitch'
@@ -219,8 +223,8 @@ class C2MTtrainer(BaseTrainer):
                                      'epoch%03d_sample%02d.mid' % (epoch, sample_id))
             gt_pitch = batch['pitch'].cpu().numpy()
             gt_chord = batch['chord'][:, :-1].cpu().numpy()
-            sample_dict = {'rhythm': result_dict['rhythm'][sample_id].cpu().numpy(),
-                           'pitch': pitch_idx[sample_id],
+            sample_dict = {'pitch': pitch_idx[sample_id],
+                           'rhythm': result_dict['rhythm'][sample_id].cpu().numpy(),
                            'chord': chord_array_to_dict(gt_chord[sample_id])}
 
             with open(save_path.replace('.mid', '.pkl'), 'wb') as f_samp:
@@ -235,8 +239,9 @@ class C2MTtrainer(BaseTrainer):
                         str(gt_pitch[sample_id, self.config["num_prime"]:self.config["num_prime"] + 20]))
             gt_path = os.path.join(asset_path, 'sampling_results', 'epoch_%03d' % epoch,
                                      'epoch%03d_groundtruth%02d.mid' % (epoch, sample_id))
-            gt_dict = {'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
-                       'pitch': gt_pitch[sample_id, :-1],
+            gt_dict = {'pitch': gt_pitch[sample_id, :-1],
+                       # 'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
+                       'rhythm': batch['beat'][sample_id, :-1].cpu().numpy(),
                        'chord': chord_array_to_dict(gt_chord[sample_id])}
             with open(gt_path.replace('.mid', '.pkl'), 'wb') as f_gt:
                 pickle.dump(gt_dict, f_gt)
