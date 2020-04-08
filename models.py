@@ -91,7 +91,7 @@ class ChordConditionedMusicTransformer(nn.Module):
         chord_hidden = self.chord_forward(chord)
 
         rhythm_dec_result = self.rhythm_forward(rhythm[:, :-1], chord_hidden, attention_map, masking=True)
-        rhythm_out = self.rhythmout_layer(rhythm_dec_result['output'])
+        rhythm_out = self.r_outlayer(rhythm_dec_result['output'])
         rhythm_out = self.log_softmax(rhythm_out)
         result = {'rhythm': rhythm_out}
 
