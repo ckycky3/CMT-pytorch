@@ -24,7 +24,7 @@ model:
   frame_per_bar: 16
   num_bars: 8
   chord_emb_size: 128
-  note_emb_size: 256
+  pitch_emb_size: 256
   hidden_dim: 512
   key_dim: 512
   value_dim: 512

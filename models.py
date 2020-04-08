@@ -86,27 +86,29 @@ class ChordConditionedMusicTransformer(nn.Module):
     # rhythm : time_len + 1   (input & target)
     # pitch : time_len      (input only)
     # chord : time_len + 1  (input & target)
-    def forward(self, rhythm, pitch, chord, attention_map=False):
+    def forward(self, rhythm, pitch, chord, attention_map=False, rhythm_only=False):
         # chord_hidden : time_len   (target timestep)
         chord_hidden = self.chord_forward(chord)
 
         rhythm_dec_result = self.rhythm_forward(rhythm[:, :-1], chord_hidden, attention_map, masking=True)
-        rhythm_out = self.r_outlayer(rhythm_dec_result['output'])
+        rhythm_out = self.rhythmout_layer(rhythm_dec_result['output'])
         rhythm_out = self.log_softmax(rhythm_out)
-        
-        rhythm_enc_result = self.rhythm_forward(rhythm[:, 1:], chord_hidden, attention_map, masking=False)
-        rhythm_emb = rhythm_enc_result['output']
-        pitch_emb = self.pitch_emb(pitch)
-        emb = torch.cat([pitch_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
-        emb *= torch.sqrt(torch.tensor(self.hidden_dim, dtype=torch.float))
-        pitch_output = self.pitch_forward(emb, attention_map)
+        result = {'rhythm': rhythm_out}
 
-        result = {'rhythm': rhythm_out,
-                  'pitch': pitch_output['output']}
-        if attention_map:
-            result['weights_rdec'] = rhythm_dec_result['weights']
-            result['weights_renc'] = rhythm_enc_result['weights']
-            result['weights_pitch'] = pitch_output['weights']
+        if not rhythm_only:
+            rhythm_enc_result = self.rhythm_forward(rhythm[:, 1:], chord_hidden, attention_map, masking=False)
+            rhythm_emb = rhythm_enc_result['output']
+            note_emb = self.note_emb(pitch)
+            emb = torch.cat([note_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
+            emb *= torch.sqrt(torch.tensor(self.hidden_dim, dtype=torch.float))
+            pitch_output = self.pitch_forward(emb, attention_map)
+            # pitch_output = self.pitch_forward(emb, rhythm_emb, attention_map)
+            result['pitch'] = pitch_output['output']
+
+            if attention_map:
+                result['weights_rdec'] = rhythm_dec_result['weights']
+                result['weights_renc'] = rhythm_enc_result['weights']
+                result['weights_pitch'] = pitch_output['weights']
         return result
 
     def chord_forward(self, chord):
@@ -208,7 +210,7 @@ class ChordConditionedMusicTransformer(nn.Module):
             if topk is None:
                 idx = torch.argmax(pitch_dict['output'][:, i - 1, :], dim=1)
             else:
-                topk_probs, topk_idxs = torch.topk(pitch_dict['output'][:, i-1, :], topk, dim=-1)
+                topk_probs, topk_idxs = torch.topk(pitch_dict['output'][:, i - 1, :], topk, dim=-1)
                 idx = torch.gather(topk_idxs, 1, torch.multinomial(F.softmax(topk_probs, dim=-1), 1)).squeeze()
             pitch_result[:, i] = idx
 

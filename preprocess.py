@@ -147,10 +147,10 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                 if len(chord_inst.nonzero()[1]) < 4:
                     continue
 
-                beat_idx = np.minimum(np.sum(pianoroll_inst.T, axis=1), 1) + np.minimum(np.sum(onset_inst.T, axis=1), 1)
-                beat_idx = beat_idx.astype(int)
+                rhythm_idx = np.minimum(np.sum(pianoroll_inst.T, axis=1), 1) + np.minimum(np.sum(onset_inst.T, axis=1), 1)
+                rhythm_idx = rhythm_idx.astype(int)
                 # If more than 75% is not-playing, do not make instance
-                if beat_idx.nonzero()[0].size < (instance_len // 4):
+                if rhythm_idx.nonzero()[0].size < (instance_len // 4):
                     continue
 
                 if pitch_range == 128:
@@ -177,15 +177,15 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                         else:
                             prev_onset = onset_inst[:, t].T.nonzero()[0][0] - base_note
                             cont_rest = 0
-                    elif beat_idx[t] == 1:
+                    elif rhythm_idx[t] == 1:
                         pitch_list.append(pitch_range)
-                    elif beat_idx[t] == 0:
+                    elif rhythm_idx[t] == 0:
                         pitch_list.append(pitch_range + 1)
                         cont_rest += 1
                         if cont_rest >= 30:
                             break
                     else:
-                        print(filename, i, t, beat_idx[t], onset_inst.T.nonzero())
+                        print(filename, i, t, rhythm_idx[t], onset_inst.T.nonzero())
 
                     if len(chord_inst[:, t].nonzero()[0]) != 0:
 
@@ -205,8 +205,9 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                     chord_result = csc_matrix(np.array(chord_list))
                 else:
                     chord_result = chord_dict
-                result = {'beat': beat_idx,
-                          'pitch': pitch_list,
+                result = {'pitch': pitch_list,
+                          # 'rhythm': rhythm_idx,
+                          'beat': rhythm_idx,
                           'chord': chord_result}
                 if augmentation:
                     ps = ('%d' % k) if (k < 0) else ('+%d' % k)
