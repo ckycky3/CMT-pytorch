@@ -10,7 +10,7 @@ from utils.hparams import HParams
 from utils.utils import make_save_dir, get_optimizer
 from losses import FocalLoss
 from dataset import get_loader
-from models import ChordConditionedMusicTransformer
+from models import ChordConditionedMusicTransformer as C2MT
 from trainer import C2MTtrainer
 
 # hyperparameter - using argparse and parameter module
@@ -23,6 +23,7 @@ parser.add_argument('--optim_name', type=str, default='adam')
 parser.add_argument('--lr_scheduler', type=str, default='exp')
 parser.add_argument('--pitch_loss', type=str, default=None)
 parser.add_argument('--restore_epoch', type=int, default=-1)
+parser.add_argument('--load_rhythm', dest='load_rhythm', action='store_true')
 parser.add_argument('--seed', type=int, default=1)
 args = parser.parse_args()
 
@@ -58,7 +59,7 @@ test_loader = get_loader(data_config, mode='test', ws=args.ws)
 
 # build graph, criterion and optimizer
 logger.info("build graph, criterion, optimizer and trainer")
-model = ChordConditionedMusicTransformer(**model_config)
+model = C2MT(**model_config)
 
 if args.ngpu > 1:
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
@@ -94,4 +95,5 @@ trainer = C2MTtrainer(asset_path, model, criterion, optimizer,
 # start training - add additional train configuration
 logger.info("start training")
 trainer.train(restore_epoch=args.restore_epoch,
+              load_rhythm=args.load_rhythm,
               lr_schedular=args.lr_scheduler)

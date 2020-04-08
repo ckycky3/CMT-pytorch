@@ -5,8 +5,6 @@ import pretty_midi
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from PIL import Image
-import torch
 import torch.optim as optim
 from utils import logger
 from utils.tf_logger import TF_Logger
@@ -197,45 +195,17 @@ def save_instruments_as_image(filename, instruments, chord=None, frame_per_bar=1
     plt.savefig(filename)
     plt.close(fig)
 
-
-def pianoroll_to_RGB(pianoroll, onset_roll=None, offset_roll=None, filename='pianoroll.png'):
-    shape = pianoroll.shape
-    ones = np.ones(shape, dtype=np.uint8)
-
-    if onset_roll is None:
-        onset_roll = ones
-    else:
-        onset_roll = 1 - onset_roll
-        onset_roll = onset_roll.astype(np.uint8)
-        onset_roll = onset_roll[::-1, :]
-
-    if offset_roll is None:
-        offset_roll = ones
-    else:
-        offset_roll = 1 - offset_roll
-        offset_roll = offset_roll.astype(np.uint8)
-        offset_roll = offset_roll[::-1, :]
-
-    pianoroll = 1 - pianoroll
-    pianoroll = pianoroll.astype(np.uint8)
-    pianoroll = pianoroll[::-1, :]
-
-    image = np.stack([pianoroll, onset_roll, offset_roll], axis=2)
-    image = 255 * image
-    image = Image.fromarray(image, 'RGB')
-    image.save(filename, 'PNG')
-
 root_note_list = [' C', 'C#', ' D', 'D#', ' E', ' F', 'F#', ' G', 'G#', ' A', 'A#', ' B']
 
 def idx_list_to_symbol_list(idx_list):
     symbol_list = []
     for i, event_idx in enumerate(idx_list):
-        if event_idx == 128:
+        if event_idx == 48:
             symbol = '%03d,  N' % (i + 1)
-        elif event_idx == 129:
+        elif event_idx == 49:
             symbol =  ''
         else:
-            octave = event_idx // 12 - 2
+            octave = event_idx // 12 + 3
             root_note = event_idx % 12
             symbol =  '%03d,%s%d' % (i + 1, root_note_list[root_note], octave)
         symbol_list.append(symbol)
@@ -261,7 +231,7 @@ def chord_to_symbol_list(chord):
         symbol_list.append(symbol)
     return symbol_list
 
-def beat_to_symbol_list(beat_list):
+def rhythm_to_symbol_list(beat_list):
     symbol_list = []
     for i, beat in enumerate(beat_list):
         if beat == 2:

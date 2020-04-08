@@ -1,8 +1,6 @@
-import numpy as np
 import torch
 from collections import defaultdict
 import random
-from tqdm import tqdm
 import pickle
 
 from utils import logger
@@ -50,13 +48,19 @@ class BaseTrainer:
     def train(self, **kwargs):
         raise NotImplementedError()
 
-    def load_model(self, restore_epoch):
+    def load_model(self, restore_epoch, rhythm_only=False):
         if os.path.isfile(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch)):
             checkpoint = torch.load(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch))
-            self.model.load_state_dict(checkpoint['model'])
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.current_step = checkpoint['current_step']
-            self.loading_epoch = checkpoint['epoch'] + 1
+            if rhythm_only:
+                model_dict = self.model.state_dict()
+                rhythm_state_dict = {k: v for k, v in checkpoint['model'].items() if 'rhythm' in k}
+                model_dict.update(rhythm_state_dict)
+                self.model.load_state_dict(model_dict)
+            else:
+                self.model.load_state_dict(checkpoint['model'])
+                self.optimizer.load_state_dict(checkpoint['optimizer'])
+                self.current_step = checkpoint['current_step']
+                self.loading_epoch = checkpoint['epoch'] + 1
             logger.info("restore model with %d epoch" % restore_epoch)
         else:
             logger.info("no checkpoint with %d epoch" % restore_epoch)
@@ -93,7 +97,7 @@ class C2MTtrainer(BaseTrainer):
 
     def train(self, **kwargs):
         # load model if exists
-        self.load_model(kwargs["restore_epoch"])
+        self.load_model(kwargs["restore_epoch"], kwargs["load_rhythm"])
 
         # start training
         for epoch in range(self.loading_epoch, self.config['max_epoch']):
@@ -102,15 +106,16 @@ class C2MTtrainer(BaseTrainer):
 
             # train epoch
             logger.info("==========train %d epoch==========" % epoch)
-            self._epoch(epoch, mode='train')
+            self._epoch(epoch, 'train', self.config['rhythm_only'])
 
             # valid epoch and sampling
             with torch.no_grad():
                 logger.info("==========valid %d epoch==========" % epoch)
-                self._epoch(epoch, mode='eval')
-                if epoch > self.loading_epoch and epoch % 10 == 0:
+                self._epoch(epoch, 'eval', self.config['rhythm_only'])
+                if epoch > self.loading_epoch and ((epoch < 100 and epoch % 10 == 0) or epoch % 100 == 0):
                     self.save_model(epoch, self.current_step)
-                    self._sampling(epoch)
+                    if not self.config['rhythm_only']:
+                        self._sampling(epoch)
 
     def _step(self, loss, **kwargs):
         # back-propagation
@@ -119,7 +124,7 @@ class C2MTtrainer(BaseTrainer):
         self.optimizer.step()
         self.current_step += 1
 
-    def _epoch(self, epoch, mode, **kwargs):
+    def _epoch(self, epoch, mode, rhythm_only=False, **kwargs):
         # enable eval mode
         if mode == 'train':
             self.model.train()
@@ -135,7 +140,7 @@ class C2MTtrainer(BaseTrainer):
         for i, data in enumerate(loader):
             # preprocessing and forwarding
             result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
-                                     data['chord'], False)
+                                     data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
             rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
             pitch_out = result_dict['pitch']
@@ -214,9 +219,9 @@ class C2MTtrainer(BaseTrainer):
                                      'epoch%03d_sample%02d.mid' % (epoch, sample_id))
             gt_pitch = batch['pitch'].cpu().numpy()
             gt_chord = batch['chord'][:, :-1].cpu().numpy()
-            sample_dict = {'pitch': pitch_idx[sample_id],
+            sample_dict = {'rhythm': result_dict['rhythm'][sample_id].cpu().numpy(),
+                           'pitch': pitch_idx[sample_id],
                            'chord': chord_array_to_dict(gt_chord[sample_id])}
-            sample_dict['rhythm'] = result_dict['rhythm'][sample_id].cpu().numpy()
 
             with open(save_path.replace('.mid', '.pkl'), 'wb') as f_samp:
                 pickle.dump(sample_dict, f_samp)
@@ -230,12 +235,37 @@ class C2MTtrainer(BaseTrainer):
                         str(gt_pitch[sample_id, self.config["num_prime"]:self.config["num_prime"] + 20]))
             gt_path = os.path.join(asset_path, 'sampling_results', 'epoch_%03d' % epoch,
                                      'epoch%03d_groundtruth%02d.mid' % (epoch, sample_id))
-            gt_dict = {'pitch': gt_pitch[sample_id, :-1],
-                        'chord': chord_array_to_dict(gt_chord[sample_id])}
-            gt_dict['rhythm'] = batch['rhythm'][sample_id, :-1].cpu().numpy()
+            gt_dict = {'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
+                       'pitch': gt_pitch[sample_id, :-1],
+                       'chord': chord_array_to_dict(gt_chord[sample_id])}
             with open(gt_path.replace('.mid', '.pkl'), 'wb') as f_gt:
                 pickle.dump(gt_dict, f_gt)
             gt_instruments = pitch_to_midi(gt_pitch[sample_id, :-1], gt_chord[sample_id], model.frame_per_bar, gt_path)
             save_instruments_as_image(gt_path.replace('.mid', '.jpg'), gt_instruments,
                                       frame_per_bar=model.frame_per_bar,
                                       num_bars=(model.max_len // model.frame_per_bar))
+
+            if self.config['attention_map']:
+                os.makedirs(os.path.join(asset_path, 'attention_map', 'epoch_%03d' % epoch,
+                                         'RDec-Chord', 'sample_%02d' % sample_id), exist_ok=True)
+
+                for head_num in range(8):
+                    for l, w in enumerate(result_dict['weights_bdec']):
+                        fig_w = plt.figure(figsize=(8, 8))
+                        ax_w = fig_w.add_subplot(1, 1, 1)
+                        heatmap_w = ax_w.pcolor(w[sample_id, head_num].cpu().numpy(), cmap='Reds')
+                        ax_w.set_xticks(np.arange(0, self.model.module.max_len))
+                        ax_w.xaxis.tick_top()
+                        ax_w.set_yticks(np.arange(0, self.model.module.max_len))
+                        ax_w.set_xticklabels(rhythm_to_symbol_list(result_dict['rhythm'][sample_id].cpu().numpy()),
+                                             fontdict=x_fontdict)
+                        chord_symbol_list = [''] * pitch_idx.shape[1]
+                        for t in sorted(chord_array_to_dict(gt_chord[sample_id]).keys()):
+                            chord_symbol_list[t] = chord_array_to_dict(gt_chord[sample_id])[t].tolist()
+                        ax_w.set_yticklabels(chord_to_symbol_list(gt_chord[sample_id]), fontdict=y_fontdict)
+                        ax_w.invert_yaxis()
+                        plt.savefig(os.path.join(asset_path, 'attention_map', 'epoch_%03d' % epoch, 'RDec-Chord',
+                                                 'sample_%02d' % sample_id,
+                                                 'epoch%03d_RDec-Chord_sample%02d_head%02d_layer%02d.jpg' % (
+                                                 epoch, sample_id, head_num, l)))
+                        plt.close()

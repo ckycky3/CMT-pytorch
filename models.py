@@ -102,7 +102,6 @@ class ChordConditionedMusicTransformer(nn.Module):
         pitch_output = self.pitch_forward(emb, attention_map)
 
         result = {'rhythm': rhythm_out,
-                  # }
                   'pitch': pitch_output['output']}
         if attention_map:
             result['weights_rdec'] = rhythm_dec_result['weights']
@@ -182,9 +181,7 @@ class ChordConditionedMusicTransformer(nn.Module):
             rhythm_dec_result = self.rhythm_forward(rhythm_result, chord_hidden, attention_map, masking=True)
             rhythm_out = self.r_outlayer(rhythm_dec_result['output'])
             rhythm_out = self.log_softmax(rhythm_out)
-            # idx = torch.argmax(rhythm_out[:, i - 1, :], dim=1)
             if topk is None:
-            # if i % (4 * self.frame_per_bar) < (2 * self.frame_per_bar):
                 idx = torch.argmax(rhythm_out[:, i - 1, :], dim=1)
             else:
                 top3_probs, top3_idxs = torch.topk(rhythm_out[:, i - 1, :], 3, dim=-1)

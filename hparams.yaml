@@ -3,10 +3,7 @@ data_io:
     '5': '/home/jp/MusicTransformer/data/lakh_midi_dataset'
     '8': '/data1/midi/lpd_cleansed_melody_added_before_ver_0115'
     '9': '/data1/lakh/lpd_cleansed_ckey_melody_added_before_ver_0115'
-#    '10': '/data2/score2midi/pkl_files/instance_pkl_32bars_fpb16'
-    '10': '/data2/score2midi/pkl_files/uk_instance_pkl_8bars_fpb16_cleansed'
-#    '10': '/data2/nottingham-midi/instance_pkl_8bars_fpb16_48p'
-#    '10': '/data2/score2midi/pkl_files/12aug_instance_pkl_8bars_fpb16_48p'
+    '10': '/data2/score2midi/pkl_files/instance_pkl_8bars_fpb16_48p_ckey'
 
   loader:
     num_workers: 8
@@ -26,25 +23,20 @@ model:
   num_pitch: 50
   frame_per_bar: 16
   num_bars: 8
-  chord_emb_size: 256
-  note_emb_size: 512
-  hidden_dim: 1024
-  key_dim: 1024
-  value_dim: 1024
-#  chord_emb_size: 48
-#  note_emb_size: 480
-#  hidden_dim: 960
-#  key_dim: 960
-#  value_dim: 960
+  chord_emb_size: 128
+  note_emb_size: 256
+  hidden_dim: 512
+  key_dim: 512
+  value_dim: 512
   chord_add: True
   input_dropout: 0.2
   layer_dropout: 0.2
   attention_dropout: 0.2
-  num_layers: 6
-  num_heads: 8
+  num_layers: 8
+  num_heads: 16
 
 experiment:
-  max_epoch: 3001
+  max_epoch: 101
   num_sample: 5
   topk: 5
   lr: 0.0001
@@ -54,6 +46,7 @@ experiment:
   verbose: True
   num_prime: 16
   attention_map: False
+  rhythm_only: True
 
 optimizer:
   sgd:
@@ -79,4 +72,4 @@ asset_root:
   '5': '/home/jp/MusicTransformer/assets'
   '8': '/data3/assets/wookee3/structuralmusic'
   '9': '/data2/assets/wookee3/structuralmusic'
-  '10': '/assets/ckycky3/UnifiedKey'
+  '10': '/assets/ckycky3/UnifiedKey/score2midi'

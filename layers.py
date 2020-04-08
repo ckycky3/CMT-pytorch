@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import math
-from utils import logger
 use_cuda = torch.cuda.is_available()
 if use_cuda:
     device = torch.device("cuda")

@@ -1,5 +1,3 @@
-
-
 def cal_metrics(out, target, metrics, mode, name=None, **kwargs):
     if not metrics[0]:
         return {}
