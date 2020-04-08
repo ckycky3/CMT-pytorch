@@ -98,8 +98,8 @@ class ChordConditionedMusicTransformer(nn.Module):
         if not rhythm_only:
             rhythm_enc_result = self.rhythm_forward(rhythm[:, 1:], chord_hidden, attention_map, masking=False)
             rhythm_emb = rhythm_enc_result['output']
-            note_emb = self.note_emb(pitch)
-            emb = torch.cat([note_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
+            pitch_emb = self.pitch_emb(pitch)
+            emb = torch.cat([pitch_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
             emb *= torch.sqrt(torch.tensor(self.hidden_dim, dtype=torch.float))
             pitch_output = self.pitch_forward(emb, attention_map)
             # pitch_output = self.pitch_forward(emb, rhythm_emb, attention_map)

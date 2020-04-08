@@ -144,7 +144,7 @@ class C2MTtrainer(BaseTrainer):
                                      data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
             rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
-            num_total += rhythm_out[:, :, 0].numel()
+            num_total += rhythm_out[:, 0].numel()
             if not rhythm_only:
                 pitch_out = result_dict['pitch']
                 pitch_out = pitch_out.view(-1, pitch_out.size(-1))
