@@ -144,9 +144,10 @@ class C2MTtrainer(BaseTrainer):
                                      data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
             rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
-            pitch_out = result_dict['pitch']
-            pitch_out = pitch_out.view(-1, pitch_out.size(-1))
-            num_total += pitch_out[:, :, 0].numel()
+            num_total += rhythm_out[:, :, 0].numel()
+            if not rhythm_only:
+                pitch_out = result_dict['pitch']
+                pitch_out = pitch_out.view(-1, pitch_out.size(-1))
 
             # get loss & metric(accuracy)
             rhythm_criterion = self.criterion[0]
@@ -155,16 +156,21 @@ class C2MTtrainer(BaseTrainer):
             # rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
             rhythm_loss = rhythm_criterion(rhythm_out, data['beat'][:, 1:].contiguous().view(-1))
             total_rhythm_loss += rhythm_loss.item()
-            pitch_loss = pitch_criterion(pitch_out, data['pitch'][:, 1:].contiguous().view(-1))
-            total_pitch_loss += pitch_loss.item()
-            loss = pitch_loss + rhythm_loss
 
             result = dict()
-            result.update(cal_metrics(pitch_out, data['pitch'][:, 1:].contiguous().view(-1),
-                                      self.metrics, mode, name='pitch'))
             # result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
             result.update(cal_metrics(rhythm_out, data['beat'][:, 1:].contiguous().view(-1),
                                       self.metrics, mode, name='rhythm'))
+
+            if rhythm_only:
+                pitch_loss = 0
+            else:
+                pitch_loss = pitch_criterion(pitch_out, data['pitch'][:, 1:].contiguous().view(-1))
+                total_pitch_loss += pitch_loss.item()
+                result.update(cal_metrics(pitch_out, data['pitch'][:, 1:].contiguous().view(-1),
+                                          self.metrics, mode, name='pitch'))
+
+            loss = pitch_loss + rhythm_loss
 
             for key, val in result.items():
                 results[key] += val
