@@ -45,7 +45,7 @@ experiment:
   verbose: True
   num_prime: 16
   attention_map: False
-  rhythm_only: True
+  rhythm_only: False
 
 optimizer:
   sgd:

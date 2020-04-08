@@ -74,8 +74,8 @@ class ChordConditionedMusicTransformer(nn.Module):
         ])
 
         # output layer
-        self.r_outlayer = nn.Linear(self.rhythm_hidden, self.num_rhythm)
-        self.p_outlayer = nn.Linear(self.hidden_dim, self.num_pitch)
+        self.rhythm_outlayer = nn.Linear(self.rhythm_hidden, self.num_rhythm)
+        self.pitch_outlayer = nn.Linear(self.hidden_dim, self.num_pitch)
         self.log_softmax = nn.LogSoftmax(dim=-1)
 
     def init_lstm_hidden(self, batch_size):
@@ -91,7 +91,7 @@ class ChordConditionedMusicTransformer(nn.Module):
         chord_hidden = self.chord_forward(chord)
 
         rhythm_dec_result = self.rhythm_forward(rhythm[:, :-1], chord_hidden, attention_map, masking=True)
-        rhythm_out = self.r_outlayer(rhythm_dec_result['output'])
+        rhythm_out = self.rhythm_outlayer(rhythm_dec_result['output'])
         rhythm_out = self.log_softmax(rhythm_out)
         result = {'rhythm': rhythm_out}
 
@@ -160,7 +160,7 @@ class ChordConditionedMusicTransformer(nn.Module):
                 pitch_weights.append(pitch_result['weight'])
 
         # output layer
-        output = self.p_outlayer(emb)
+        output = self.pitch_outlayer(emb)
         output = self.log_softmax(output)
         
         result = {'output': output}
@@ -181,7 +181,7 @@ class ChordConditionedMusicTransformer(nn.Module):
         # sampling phase
         for i in range(prime_pitch.size(1), self.max_len):
             rhythm_dec_result = self.rhythm_forward(rhythm_result, chord_hidden, attention_map, masking=True)
-            rhythm_out = self.r_outlayer(rhythm_dec_result['output'])
+            rhythm_out = self.rhythm_outlayer(rhythm_dec_result['output'])
             rhythm_out = self.log_softmax(rhythm_out)
             if topk is None:
                 idx = torch.argmax(rhythm_out[:, i - 1, :], dim=1)
@@ -191,7 +191,7 @@ class ChordConditionedMusicTransformer(nn.Module):
             rhythm_result[:, i] = idx
 
         rhythm_dict = self.rhythm_forward(rhythm_result, chord_hidden, attention_map, masking=True)
-        rhythm_out = self.r_outlayer(rhythm_dict['output'])
+        rhythm_out = self.rhythm_outlayer(rhythm_dict['output'])
         rhythm_out = self.log_softmax(rhythm_out)
         idx = torch.argmax(rhythm_out[:, -1, :], dim=1)
         rhythm_temp = torch.cat([rhythm_result[:, 1:], idx.unsqueeze(-1)], dim=1)

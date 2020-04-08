@@ -49,15 +49,16 @@ class BaseTrainer:
         raise NotImplementedError()
 
     def load_model(self, restore_epoch, rhythm_only=False):
+        model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
         if os.path.isfile(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch)):
             checkpoint = torch.load(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch))
             if rhythm_only:
-                model_dict = self.model.state_dict()
+                model_dict = model.state_dict()
                 rhythm_state_dict = {k: v for k, v in checkpoint['model'].items() if 'rhythm' in k}
                 model_dict.update(rhythm_state_dict)
-                self.model.load_state_dict(model_dict)
+                model.load_state_dict(model_dict)
             else:
-                self.model.load_state_dict(checkpoint['model'])
+                model.load_state_dict(checkpoint['model'])
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
                 self.current_step = checkpoint['current_step']
                 self.loading_epoch = checkpoint['epoch'] + 1
@@ -66,9 +67,10 @@ class BaseTrainer:
             logger.info("no checkpoint with %d epoch" % restore_epoch)
 
     def save_model(self, epoch, current_step):
+        model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
         logger.info('saving model, Epoch %d, step %d' % (epoch, current_step))
         model_save_path = os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % epoch)
-        state_dict = {'model': self.model.state_dict(),
+        state_dict = {'model': model.state_dict(),
                       'optimizer': self.optimizer.state_dict(),
                       'current_step': current_step,
                       'epoch': epoch}
