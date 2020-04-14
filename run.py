@@ -88,7 +88,7 @@ optimizer = get_optimizer(params, config.experiment['lr'],
 # get trainer
 trainer = C2MTtrainer(asset_path, model, criterion, optimizer,
                       train_loader, eval_loader, test_loader,
-                      exp_config)
+                      device, exp_config)
 
 # start training - add additional train configuration
 logger.info("start training")

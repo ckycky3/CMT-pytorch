@@ -18,12 +18,13 @@ y_fontdict = {'fontsize': 6}
 
 class BaseTrainer:
     def __init__(self, asset_path, model, criterion, optimizer,
-                 train_loader, eval_loader, test_loader,
+                 train_loader, eval_loader, test_loader, device,
                  config):
         self.asset_path = asset_path
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
+        self.device = device
         self.config = config
         self.verbose = config['verbose']
 
@@ -89,10 +90,10 @@ class BaseTrainer:
 class C2MTtrainer(BaseTrainer):
     def __init__(self, asset_path, model, criterion, optimizer,
                  train_loader, eval_loader, test_loader,
-                 config):
+                 device, config):
         super(C2MTtrainer, self).__init__(asset_path, model, criterion, optimizer,
                                           train_loader, eval_loader, test_loader,
-                                          config)
+                                          device, config)
         # for logging
         self.losses = defaultdict(list)
         self.tf_logger = get_tflogger(asset_path)
@@ -142,6 +143,8 @@ class C2MTtrainer(BaseTrainer):
         for i, data in enumerate(loader):
             # preprocessing and forwarding
             # result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
+            for key in data.keys():
+                data[key] = data[key].to(self.device)
             result_dict = self.model(data['beat'], data['pitch'][:, :-1],
                                      data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
@@ -210,6 +213,8 @@ class C2MTtrainer(BaseTrainer):
 
         indices = random.sample(range(len(loader.dataset)), self.config["num_sample"])
         batch = collate_fn([loader.dataset[i] for i in indices])
+        for key in batch.keys():
+            batch[key] = batch[key].to(self.device)
         prime = batch['pitch'][:, :self.config["num_prime"]]
         if isinstance(self.model, torch.nn.DataParallel):
             model = self.model.module

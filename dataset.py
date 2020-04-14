@@ -5,8 +5,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from utils.utils import chord_dict_to_array
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
 
 class ChordMusicDataset(Dataset):
     def __init__(self, root_path='/data2/score2midi/instance_pkl_8bars_fpb16',
@@ -42,7 +40,7 @@ def collate_fn(batch):
     result = dict()
     for key in batch[0].keys():
         content = np.array([item[key] for item in batch])
-        content = torch.tensor(content).to(device)
+        content = torch.tensor(content)
         result[key] = content
     return result
 

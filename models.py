@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from layers import DynamicPositionEmbedding, SelfAttentionBlock
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
 
 
 class ChordConditionedMusicTransformer(nn.Module):
@@ -79,8 +77,8 @@ class ChordConditionedMusicTransformer(nn.Module):
         self.log_softmax = nn.LogSoftmax(dim=-1)
 
     def init_lstm_hidden(self, batch_size):
-        h0 = Variable(torch.zeros(2, batch_size, self.chord_hidden)).to(device)
-        c0 = Variable(torch.zeros(2, batch_size, self.chord_hidden)).to(device)
+        h0 = Variable(torch.zeros(2, batch_size, self.chord_hidden))
+        c0 = Variable(torch.zeros(2, batch_size, self.chord_hidden))
         return (h0, c0)
 
     # rhythm : time_len + 1   (input & target)
@@ -122,7 +120,7 @@ class ChordConditionedMusicTransformer(nn.Module):
 
         h0, c0 = self.init_lstm_hidden(size[0])
         self.chord_lstm.flatten_parameters()
-        chord_out, _ = self.chord_lstm(chord_emb, (h0, c0))
+        chord_out, _ = self.chord_lstm(chord_emb, (h0.to(chord.device), c0.to(chord.device)))
         chord_for = chord_out[:, 1:, :self.chord_hidden]
         chord_back = chord_out[:, 1:, self.chord_hidden:]
         return chord_for, chord_back
@@ -175,7 +173,7 @@ class ChordConditionedMusicTransformer(nn.Module):
         # batch_size * prime_len * num_outputs
         batch_size = prime_pitch.size(0)
         pad_length = self.max_len - prime_pitch.size(1)
-        rhythm_pad = torch.zeros([batch_size, pad_length], dtype=torch.long).to(device)
+        rhythm_pad = torch.zeros([batch_size, pad_length], dtype=torch.long).to(prime_rhythm.device)
         rhythm_result = torch.cat([prime_rhythm, rhythm_pad], dim=1)
 
         # sampling phase
@@ -198,7 +196,7 @@ class ChordConditionedMusicTransformer(nn.Module):
         rhythm_enc_dict = self.rhythm_forward(rhythm_temp, chord_hidden, attention_map, masking=False)
         rhythm_emb = rhythm_enc_dict['output']
 
-        pitch_pad = torch.ones([batch_size, pad_length], dtype=torch.long).to(device)
+        pitch_pad = torch.ones([batch_size, pad_length], dtype=torch.long).to(prime_pitch.device)
         pitch_pad *= (self.num_pitch - 1)
         pitch_result = torch.cat([prime_pitch, pitch_pad], dim=1)
         for i in range(prime_pitch.size(1), self.max_len):

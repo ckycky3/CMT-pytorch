@@ -6,9 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import math
-use_cuda = torch.cuda.is_available()
-if use_cuda:
-    device = torch.device("cuda")
 
 
 def _gen_bias_mask(max_length):
@@ -38,7 +35,7 @@ class DynamicPositionEmbedding(nn.Module):
         self.positional_embedding = nn.Parameter(torch.tensor(embed_sinusoid_list, dtype=torch.float), requires_grad=False)
 
     def forward(self, input):
-        return input + self.positional_embedding[:, :input.shape[1], :].to(device)
+        return input + self.positional_embedding[:, :input.shape[1], :].to(input.device)
 
 
 class RelativeMultiHeadAttention(nn.Module):
@@ -131,7 +128,7 @@ class RelativeMultiHeadAttention(nn.Module):
         lengths = torch.arange(qe.size(-1) - 1, qe.size(-1) - qe.size(-2) - 1, -1)
         maxlen = qe.size(-1)
         mask = torch.arange(maxlen).unsqueeze(0) >= lengths.unsqueeze(1)
-        return mask.float().to(device) * qe
+        return mask.float().to(qe.device) * qe
 
     def forward(self, queries, keys, values, attention_map=False, mask=None):
 
