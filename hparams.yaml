@@ -3,11 +3,12 @@ data_io:
     '5': '/home/jp/MusicTransformer/data/lakh_midi_dataset'
     '8': '/data1/midi/lpd_cleansed_melody_added_before_ver_0115'
     '9': '/data1/lakh/lpd_cleansed_ckey_melody_added_before_ver_0115'
-    '10': '/data2/score2midi/pkl_files/instance_pkl_8bars_fpb16_48p_ckey'
+    '10': '/data2/score2midi/pkl_files/instance_pkl_16bars_fpb16_48p_ckey'
+#    '10': '/data2/score2midi/pkl_files/12aug_instance_pkl_16bars_fpb16_48p'
 
   loader:
     num_workers: 8
-    batch_size: 256
+    batch_size: 64
     shuffle: True
     drop_last: True
     pin_memory: True
@@ -22,7 +23,7 @@ model:
 #  num_events: 51
   num_pitch: 50
   frame_per_bar: 16
-  num_bars: 8
+  num_bars: 16
   chord_emb_size: 128
   pitch_emb_size: 256
   hidden_dim: 512
@@ -71,4 +72,5 @@ asset_root:
   '5': '/home/jp/MusicTransformer/assets'
   '8': '/data3/assets/wookee3/structuralmusic'
   '9': '/data2/assets/wookee3/structuralmusic'
-  '10': '/assets/ckycky3/UnifiedKey/score2midi'
+#  '10': '/assets/ckycky3/UnifiedKey/score2midi'
+  '10': '/assets/ckycky3/C2MT/score2midi'

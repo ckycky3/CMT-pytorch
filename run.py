@@ -67,7 +67,7 @@ nll_criterion = nn.NLLLoss().to(device)
 pitch_criterion = FocalLoss(gamma=2).to(device)
 criterion = (nll_criterion, pitch_criterion)
 
-if 'rhythm_lr' in config.experiment.keys():
+if args.load_rhythm:
     rhythm_params = list()
     pitch_params = list()
     param_model = model.module if isinstance(model, torch.nn.DataParallel) else model

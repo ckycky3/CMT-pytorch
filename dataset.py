@@ -2,7 +2,6 @@ import os
 import glob
 import pickle
 import numpy as np
-from scipy.sparse import csc_matrix
 import torch
 from torch.utils.data import Dataset, DataLoader
 from utils.utils import chord_dict_to_array
