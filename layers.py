@@ -150,7 +150,7 @@ class RelativeMultiHeadAttention(nn.Module):
 
         # Add bias to mask future values
         if mask is not None:
-            logits += mask[:, :, :logits.shape[-2], :logits.shape[-1]].type_as(logits.data)
+            logits += mask[:, :, :logits.shape[-2], :logits.shape[-1]].type_as(logits.data).to(logits.device)
 
         # Scale logits
         logits *= self.query_scale
