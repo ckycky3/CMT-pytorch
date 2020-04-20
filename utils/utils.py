@@ -89,11 +89,33 @@ def pitch_to_midi(pitch, chord, frame_per_bar=16, save_path=None, basis_note=60)
         instrument.notes.append(note)
 
     midi_data.instruments.append(instrument)
-    midi_data.instruments.append(concat_chord_to_instrument(chord, frame_per_bar=frame_per_bar))
+    # midi_data.instruments.append(concat_chord_to_instrument(chord, frame_per_bar=frame_per_bar))
+    midi_data.instruments.append(chord_to_instrument(chord, frame_per_bar=frame_per_bar))
     if save_path is not None:
         midi_data.write(save_path)
 
     return midi_data.instruments
+
+
+def chord_to_instrument(chord_array, frame_per_bar=16):
+    frame_per_second = (frame_per_bar / 4) * 2
+    unit_time = 1 / frame_per_second
+    instrument = pretty_midi.Instrument(program=0, name='chord')
+    chord = chord_array[0]
+    prev_t = 0
+    for t in range(chord_array.shape[0]):
+        if not (chord_array[t] == chord).all():
+            chord_notes = chord.nonzero()[0]
+            for root in chord_notes:
+                note = pretty_midi.Note(start=prev_t * unit_time, end=t * unit_time, pitch=48 + root, velocity=70)
+                instrument.notes.append(note)
+            prev_t = t
+            chord = chord_array[t]
+    chord_notes = chord.nonzero()[0]
+    for root in chord_notes:
+        note = pretty_midi.Note(start=prev_t * unit_time, end=chord_array.shape[0] * unit_time, pitch=48 + root, velocity=70)
+        instrument.notes.append(note)
+    return instrument
 
 
 def concat_chord_to_instrument(chord_array, frame_per_bar=16):
