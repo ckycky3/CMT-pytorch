@@ -28,10 +28,11 @@ class ChordMusicDataset(Dataset):
         with open(self.file_paths[idx], 'rb') as f:
             instance = pickle.load(f)
 
-        # convert chord_dict to T*5 array
-        max_len = instance['pitch'].size
-        chord_dict = instance['chord']
-        instance['chord'] = chord_dict_to_array(chord_dict, max_len)
+        instance['chord'] = instance['chord'].toarray()
+        # # convert chord_dict to T*5 array
+        # max_len = instance['pitch'].size
+        # chord_dict = instance['chord']
+        # instance['chord'] = chord_dict_to_array(chord_dict, max_len)
 
         return instance
 

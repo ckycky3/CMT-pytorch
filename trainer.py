@@ -2,6 +2,7 @@ import torch
 from collections import defaultdict
 import random
 import pickle
+from scipy.sparse import csc_matrix
 
 from utils import logger
 from utils.metrics import cal_metrics
@@ -238,7 +239,9 @@ class C2MTtrainer(BaseTrainer):
             gt_chord = batch['chord'][:, :-1].cpu().numpy()
             sample_dict = {'pitch': pitch_idx[sample_id],
                            'rhythm': result_dict['rhythm'][sample_id].cpu().numpy(),
-                           'chord': chord_array_to_dict(gt_chord[sample_id])}
+                           # 'chord': chord_array_to_dict(gt_chord[sample_id])}
+                           'chord': csc_matrix(gt_chord[sample_id])}
+
 
             with open(save_path.replace('.mid', '.pkl'), 'wb') as f_samp:
                 pickle.dump(sample_dict, f_samp)
@@ -255,7 +258,8 @@ class C2MTtrainer(BaseTrainer):
             gt_dict = {'pitch': gt_pitch[sample_id, :-1],
                        # 'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
                        'rhythm': batch['beat'][sample_id, :-1].cpu().numpy(),
-                       'chord': chord_array_to_dict(gt_chord[sample_id])}
+                       # 'chord': chord_array_to_dict(gt_chord[sample_id])}
+                       'chord': csc_matrix(gt_chord[sample_id])}
             with open(gt_path.replace('.mid', '.pkl'), 'wb') as f_gt:
                 pickle.dump(gt_dict, f_gt)
             gt_instruments = pitch_to_midi(gt_pitch[sample_id, :-1], gt_chord[sample_id], model.frame_per_bar, gt_path)

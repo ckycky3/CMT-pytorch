@@ -29,7 +29,9 @@ class ChordConditionedMusicTransformer(nn.Module):
         self.hidden_dim = hidden_dim
 
         # embedding layer
-        self.chord_emb = nn.Embedding(self.num_chords + 1, self.chord_emb_size, padding_idx=12)
+        # self.chord_emb = nn.Embedding(self.num_chords + 1, self.chord_emb_size, padding_idx=12)
+        self.chord_emb = nn.Parameter(torch.randn(self.num_chords, self.chord_emb_size,
+                                                  dtype=torch.float, requires_grad=True))
         self.rhythm_emb = nn.Embedding(self.num_rhythm, self.rhythm_emb_size)
         self.pitch_emb = nn.Embedding(self.num_pitch, self.pitch_emb_size)
 
@@ -111,12 +113,13 @@ class ChordConditionedMusicTransformer(nn.Module):
 
     def chord_forward(self, chord):
         size = chord.size()
-        if self.chord_add:
-            # sum B * T * 5 * D to B * T * D
-            chord_emb = torch.sum(self.chord_emb(chord), dim=2)
-        else:
-            # concat B * T * 5 * D to B * T * 5D
-            chord_emb = self.chord_emb(chord).view(size[0], size[1], -1)
+        # if self.chord_add:
+        #     # sum B * T * 5 * D to B * T * D
+        #     chord_emb = torch.sum(self.chord_emb(chord), dim=2)
+        # else:
+        #     # concat B * T * 5 * D to B * T * 5D
+        #     chord_emb = self.chord_emb(chord).view(size[0], size[1], -1)
+        chord_emb = torch.matmul(chord.float(), self.chord_emb)
 
         h0, c0 = self.init_lstm_hidden(size[0])
         self.chord_lstm.flatten_parameters()
