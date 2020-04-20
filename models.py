@@ -52,6 +52,7 @@ class ChordConditionedMusicTransformer(nn.Module):
             value_dim // 4,
             num_heads,
             self.max_len,
+            False,      # include succeeding elements' positional embedding also
             layer_dropout,
             attention_dropout
         )
@@ -66,6 +67,7 @@ class ChordConditionedMusicTransformer(nn.Module):
             value_dim,
             num_heads,
             self.max_len,
+            True,       # preceding only
             layer_dropout,
             attention_dropout
         )

@@ -50,6 +50,8 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
         instance_folder = '12aug_instance_pkl_%dbars_fpb%d_%dp' % (num_bars, frame_per_bar, pitch_range)
     else:
         instance_folder = 'instance_pkl_%dbars_fpb%d_%dp_ckey' % (num_bars, frame_per_bar, pitch_range)
+    if not dictionary:
+        instance_folder.replace('pkl_', 'pkl_csc_')
     dir_name = os.path.join(root_path, 'pkl_files', instance_folder)
     os.makedirs(dir_name, exist_ok=True)
 

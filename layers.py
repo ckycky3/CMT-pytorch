@@ -44,7 +44,7 @@ class RelativeMultiHeadAttention(nn.Module):
     """
 
     def __init__(self, input_dim, key_dim, value_dim, output_dim,
-                 max_len, num_heads, dropout=0.0):
+                 max_len, num_heads, preceding_only=True, dropout=0.0):
         """
         Parameters:
             input_dim: Size of last dimension of input
@@ -53,6 +53,7 @@ class RelativeMultiHeadAttention(nn.Module):
             output_dim: Size last dimension of the final output
             num_heads: Number of attention heads
             max_len: the length of input
+            preceding_only: False if attention to succeeding elements is needed
             dropout: Dropout probability (Should be non-zero only during training)
         """
         super(RelativeMultiHeadAttention, self).__init__()
@@ -76,7 +77,8 @@ class RelativeMultiHeadAttention(nn.Module):
         self.output_linear = nn.Linear(value_dim, output_dim, bias=False)
 
         # relative positional encoding
-        self.relative_embedding = nn.Parameter(torch.randn(num_heads, key_dim // num_heads, max_len))
+        rel_emb_len = max_len if preceding_only else 2 * max_len - 1
+        self.relative_embedding = nn.Parameter(torch.randn(num_heads, key_dim // num_heads, rel_emb_len))
 
         # dropout for attention probs
         self.attention_dropout = nn.Dropout(dropout)
@@ -179,11 +181,11 @@ class RelativeMultiHeadAttention(nn.Module):
 
 class SelfAttentionBlock(nn.Module):
     def __init__(self, input_dim, hidden_dim, key_dim, value_dim, num_heads, max_len,
-                 layer_dropout=0.0, attention_dropout=0.0):
+                 preceding_only=True, layer_dropout=0.0, attention_dropout=0.0):
         super(SelfAttentionBlock, self).__init__()
         self.mask = _gen_bias_mask(max_len)
         self.mha = RelativeMultiHeadAttention(input_dim, key_dim, value_dim, hidden_dim,
-                                              max_len, num_heads, attention_dropout)
+                                              max_len, num_heads, preceding_only, attention_dropout)
         self.FFN_pre = nn.Linear(hidden_dim, hidden_dim // 2)
         self.relu = nn.ReLU()
         self.FFN_suf = nn.Linear(hidden_dim // 2, hidden_dim)
