@@ -55,10 +55,7 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
     dir_name = os.path.join(root_path, 'pkl_files', instance_folder)
     os.makedirs(dir_name, exist_ok=True)
 
-    if 'Wikifonia' in root_path:
-        num_songs = 5029
-    elif 'score2midi' in root_path:
-        num_songs = 1397
+    song_num_list = [int(name[:4]) for name in glob.glob(os.path.join(root_path, 'midi', midi_dir, '*_00_*'))]
     instance_len = frame_per_bar * num_bars
     stride = int(instance_len / 2)
     # Default : frame_per_second=8, unit_time=0.125
@@ -67,13 +64,12 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
 
     # midi_files = glob.glob(os.path.join(root_path, midi_dir, '*.midi'))
     midi_files = glob.glob(os.path.join(root_path, 'midi', midi_dir, '*.midi'))
-    num_eval = int(num_songs * data_ratio[1])
-    num_test = int(num_songs * data_ratio[2])
+    num_eval = int(len(song_num_list) * data_ratio[1])
+    num_test = int(len(song_num_list) * data_ratio[2])
     random.seed(0)
-    eval_set = random.sample(set(range(num_songs)) - duplicate_set, num_eval)
-    test_set = random.sample(set(range(num_songs)) - duplicate_set - set(eval_set), num_test)
-    # eval_set = random.sample(range(num_songs), num_eval)
-    # test_set = random.sample(set(range(num_songs)) - set(eval_set), num_test)
+    eval_test_cand = set(song_num_list) - duplicate_set if 'score2midi' in root_path else set(song_num_list)
+    eval_set = random.sample(eval_test_cand, num_eval)
+    test_set = random.sample(eval_test_cand - set(eval_set), num_test)
 
     for midi_file in Bar("Processing").iter(sorted(midi_files)):
         filename = int(midi_file.split('/')[-1].split('.')[0].split('_')[0])
