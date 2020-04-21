@@ -55,7 +55,7 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
     dir_name = os.path.join(root_path, 'pkl_files', instance_folder)
     os.makedirs(dir_name, exist_ok=True)
 
-    song_num_list = [int(name[:4]) for name in glob.glob(os.path.join(root_path, 'midi', midi_dir, '*_00_*'))]
+    song_num_list = [int(name.split('/')[-1][:4]) for name in glob.glob(os.path.join(root_path, 'midi', midi_dir, '*_00_*'))]
     instance_len = frame_per_bar * num_bars
     stride = int(instance_len / 2)
     # Default : frame_per_second=8, unit_time=0.125
