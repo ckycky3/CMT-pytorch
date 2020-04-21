@@ -50,21 +50,21 @@ class BaseTrainer:
     def train(self, **kwargs):
         raise NotImplementedError()
 
-    def load_model(self, restore_epoch, rhythm_only=False):
+    def load_model(self, restore_epoch, load_rhythm=False):
         model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
         restore_ckpt = os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch)
-        if not (os.path.isfile(restore_ckpt) or rhythm_only):
+        if not (os.path.isfile(restore_ckpt) or load_rhythm):
             logger.info("no checkpoint with %d epoch" % restore_epoch)
         else:
             if os.path.isfile(restore_ckpt):
                 checkpoint = torch.load(restore_ckpt)
             else:
-                rhythm_asset_path = os.path.join(self.asset_path.split('/')[:-1],
+                rhythm_asset_path = os.path.join('/'.join(self.asset_path.split('/')[:-1]),
                                                  'idx%03d' % self.config['restore_rhythm']['idx'])
                 rhythm_ckpt = os.path.join(rhythm_asset_path, 'model',
                                            'checkpoint_%d.pth.tar' % self.config['restore_rhythm']['epoch'])
                 checkpoint = torch.load(rhythm_ckpt)
-            if rhythm_only:
+            if load_rhythm:
                 model_dict = model.state_dict()
                 rhythm_state_dict = {k: v for k, v in checkpoint['model'].items() if 'rhythm' in k}
                 model_dict.update(rhythm_state_dict)
