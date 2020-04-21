@@ -47,6 +47,9 @@ experiment:
   num_prime: 16
   attention_map: False
   rhythm_only: False
+  restore_rhythm:
+    idx: 30
+    epoch: 40
 
 optimizer:
   sgd:

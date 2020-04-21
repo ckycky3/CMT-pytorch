@@ -52,21 +52,30 @@ class BaseTrainer:
 
     def load_model(self, restore_epoch, rhythm_only=False):
         model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
-        if os.path.isfile(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch)):
-            checkpoint = torch.load(os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch))
+        restore_ckpt = os.path.join(self.asset_path, 'model', 'checkpoint_%d.pth.tar' % restore_epoch)
+        if not (os.path.isfile(restore_ckpt) or rhythm_only):
+            logger.info("no checkpoint with %d epoch" % restore_epoch)
+        else:
+            if os.path.isfile(restore_ckpt):
+                checkpoint = torch.load(restore_ckpt)
+            else:
+                rhythm_asset_path = os.path.join(self.asset_path.split('/')[:-1],
+                                                 'idx%03d' % self.config['restore_rhythm']['idx'])
+                rhythm_ckpt = os.path.join(rhythm_asset_path, 'model',
+                                           'checkpoint_%d.pth.tar' % self.config['restore_rhythm']['epoch'])
+                checkpoint = torch.load(rhythm_ckpt)
             if rhythm_only:
                 model_dict = model.state_dict()
                 rhythm_state_dict = {k: v for k, v in checkpoint['model'].items() if 'rhythm' in k}
                 model_dict.update(rhythm_state_dict)
                 model.load_state_dict(model_dict)
+                logger.info("restore rhythm model")
             else:
                 model.load_state_dict(checkpoint['model'])
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
                 self.current_step = checkpoint['current_step']
                 self.loading_epoch = checkpoint['epoch'] + 1
-            logger.info("restore model with %d epoch" % restore_epoch)
-        else:
-            logger.info("no checkpoint with %d epoch" % restore_epoch)
+                logger.info("restore model with %d epoch" % restore_epoch)
 
     def save_model(self, epoch, current_step):
         model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
