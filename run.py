@@ -9,8 +9,8 @@ from utils.hparams import HParams
 from utils.utils import make_save_dir, get_optimizer
 from losses import FocalLoss
 from dataset import get_loader
-from models import ChordConditionedMusicTransformer as C2MT
-from trainer import C2MTtrainer
+from models import ChordConditionedMusicTransformer as CMT
+from trainer import CMTtrainer
 
 # hyperparameter - using argparse and parameter module
 parser = argparse.ArgumentParser()
@@ -57,7 +57,7 @@ test_loader = get_loader(data_config, mode='test', ws=args.ws)
 
 # build graph, criterion and optimizer
 logger.info("build graph, criterion, optimizer and trainer")
-model = C2MT(**model_config)
+model = CMT(**model_config)
 
 if args.ngpu > 1:
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
@@ -86,9 +86,9 @@ optimizer = get_optimizer(params, config.experiment['lr'],
                           config.optimizer, name=args.optim_name)
 
 # get trainer
-trainer = C2MTtrainer(asset_path, model, criterion, optimizer,
-                      train_loader, eval_loader, test_loader,
-                      device, exp_config)
+trainer = CMTtrainer(asset_path, model, criterion, optimizer,
+                     train_loader, eval_loader, test_loader,
+                     device, exp_config)
 
 # start training - add additional train configuration
 logger.info("start training")

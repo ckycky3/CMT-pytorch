@@ -97,13 +97,13 @@ class BaseTrainer:
                 logger.info('adjusting learning rate from %.6f to %.6f' % (old_lr, new_lr))
 
 
-class C2MTtrainer(BaseTrainer):
+class CMTtrainer(BaseTrainer):
     def __init__(self, asset_path, model, criterion, optimizer,
                  train_loader, eval_loader, test_loader,
                  device, config):
-        super(C2MTtrainer, self).__init__(asset_path, model, criterion, optimizer,
-                                          train_loader, eval_loader, test_loader,
-                                          device, config)
+        super(CMTtrainer, self).__init__(asset_path, model, criterion, optimizer,
+                                         train_loader, eval_loader, test_loader,
+                                         device, config)
         # for logging
         self.losses = defaultdict(list)
         self.tf_logger = get_tflogger(asset_path)

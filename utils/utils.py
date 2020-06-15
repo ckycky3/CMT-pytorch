@@ -145,27 +145,6 @@ def chord_to_notes(instrument, chord, prev_t, current_t, unit_time):
     return instrument
 
 
-def chord_to_instrument(chord_array, frame_per_bar=16):
-    frame_per_second = (frame_per_bar / 4) * 2
-    unit_time = 1 / frame_per_second
-    instrument = pretty_midi.Instrument(program=0, name='chord')
-    chord = chord_array[0]
-    prev_t = 0
-    for t in range(chord_array.shape[0]):
-        if not (chord_array[t] == chord).all():
-            chord_notes = chord.nonzero()[0]
-            for root in chord_notes:
-                note = pretty_midi.Note(start=prev_t * unit_time, end=t * unit_time, pitch=60+root, velocity=70)
-                instrument.notes.append(note)
-            prev_t = t
-            chord = chord_array[t]
-    chord_notes = chord.nonzero()[0]
-    for root in chord_notes:
-        note = pretty_midi.Note(start=prev_t * unit_time, end=chord_array.shape[0] * unit_time, pitch=60 + root, velocity=70)
-        instrument.notes.append(note)
-    return instrument
-
-
 def save_instruments_as_image(filename, instruments, chord=None, frame_per_bar=16, num_bars=8):
     melody_inst = instruments[0]
     chord_inst = instruments[1]
