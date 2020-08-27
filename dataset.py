@@ -4,11 +4,9 @@ import pickle
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
-from utils.utils import chord_dict_to_array
 
 class ChordMusicDataset(Dataset):
-    def __init__(self, root_path='/data2/score2midi/instance_pkl_8bars_fpb16',
-                 frame_per_bar=16, num_bars=8, mode='train'):
+    def __init__(self, root_path, frame_per_bar=16, num_bars=8, mode='train'):
         super(ChordMusicDataset, self).__init__()
 
         self.root_path = root_path
@@ -29,10 +27,6 @@ class ChordMusicDataset(Dataset):
             instance = pickle.load(f)
 
         instance['chord'] = instance['chord'].toarray()
-        # # convert chord_dict to T*5 array
-        # max_len = instance['pitch'].size
-        # chord_dict = instance['chord']
-        # instance['chord'] = chord_dict_to_array(chord_dict, max_len)
 
         return instance
 
@@ -46,10 +40,9 @@ def collate_fn(batch):
     return result
 
 
-def get_loader(config, mode='train', ws='10'):
-    dataset = ChordMusicDataset(root_path=config['path'][ws], mode=mode)
+def get_loader(config, mode='train'):
+    dataset = ChordMusicDataset(root_path=config['path'], mode=mode)
     loader = DataLoader(dataset, collate_fn=collate_fn,
-                        # **config['loader'])
                         batch_size=config['loader']['batch_size'],
                         shuffle=True, drop_last=True)
 

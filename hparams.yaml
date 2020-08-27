@@ -1,10 +1,7 @@
+asset_root: 'path/to/save/results'
+
 data_io:
-  path:
-    '5': '/home/jp/MusicTransformer/data/lakh_midi_dataset'
-    '8': '/data1/midi/lpd_cleansed_melody_added_before_ver_0115'
-    '9': '/data1/lakh/lpd_cleansed_ckey_melody_added_before_ver_0115'
-    '10': '/data2/score2midi/pkl_files/instance_pkl_8bars_fpb16_48p_ckey'
-#    '10': '/data2/score2midi/pkl_files/12aug_instance_pkl_16bars_fpb16_48p'
+  path: 'path/to/instance/pklfiles'
 
   loader:
     num_workers: 8
@@ -18,23 +15,6 @@ data_io:
       - 0.1
       - 0.1
     num_worker: 4
-
-model:
-#  num_events: 51
-  num_pitch: 50
-  frame_per_bar: 16
-  num_bars: 16
-  chord_emb_size: 128
-  pitch_emb_size: 256
-  hidden_dim: 512
-  key_dim: 512
-  value_dim: 512
-  chord_add: True
-  input_dropout: 0.2
-  layer_dropout: 0.2
-  attention_dropout: 0.2
-  num_layers: 8
-  num_heads: 16
 
 experiment:
   max_epoch: 101
@@ -51,6 +31,22 @@ experiment:
     idx: 30
     epoch: 40
 
+model:
+  num_pitch: 50
+  frame_per_bar: 16
+  num_bars: 16
+  chord_emb_size: 128
+  pitch_emb_size: 256
+  hidden_dim: 512
+  key_dim: 512
+  value_dim: 512
+  chord_add: True
+  input_dropout: 0.2
+  layer_dropout: 0.2
+  attention_dropout: 0.2
+  num_layers: 8
+  num_heads: 16
+
 optimizer:
   sgd:
     weight_decay: 0.0
@@ -66,14 +62,3 @@ optimizer:
   rmsprop:
     beta:
       0
-
-lr_scheduler:
-  exp:
-    test: 0
-
-asset_root:
-  '5': '/home/jp/MusicTransformer/assets'
-  '8': '/data3/assets/wookee3/structuralmusic'
-  '9': '/data2/assets/wookee3/structuralmusic'
-  '10': '/assets/ckycky3/UnifiedKey/score2midi'
-#  '10': '/assets/ckycky3/C2MT/score2midi'

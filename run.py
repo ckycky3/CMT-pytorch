@@ -9,17 +9,15 @@ from utils.hparams import HParams
 from utils.utils import make_save_dir, get_optimizer
 from losses import FocalLoss
 from dataset import get_loader
-from models import ChordConditionedMusicTransformer as CMT
+from models import ChordConditionedMelodyTransformer as CMT
 from trainer import CMTtrainer
 
 # hyperparameter - using argparse and parameter module
 parser = argparse.ArgumentParser()
 parser.add_argument('--idx', type=int, help='experiment number',  default=0)
-parser.add_argument('--ws', type=str, help='machine number', default='10')
 parser.add_argument('--gpu_index', '-g', type=int, default="0", help='GPU index')
 parser.add_argument('--ngpu', type=int, default=4, help='0 = CPU.')
 parser.add_argument('--optim_name', type=str, default='adam')
-parser.add_argument('--lr_scheduler', type=str, default='exp')
 parser.add_argument('--restore_epoch', type=int, default=-1)
 parser.add_argument('--load_rhythm', dest='load_rhythm', action='store_true')
 parser.add_argument('--seed', type=int, default=1)
@@ -36,7 +34,7 @@ model_config = config.model
 exp_config = config.experiment
 
 # configuration
-asset_root = config.asset_root[args.ws]
+asset_root = config.asset_root
 asset_path = os.path.join(asset_root, 'idx%03d' % args.idx)
 make_save_dir(asset_path, config)
 logger.logging_verbosity(1)
@@ -51,9 +49,9 @@ if args.seed > 0:
 
 # get dataloader for training
 logger.info("get loaders")
-train_loader = get_loader(data_config, mode='train', ws=args.ws)
-eval_loader = get_loader(data_config, mode='eval', ws=args.ws)
-test_loader = get_loader(data_config, mode='test', ws=args.ws)
+train_loader = get_loader(data_config, mode='train')
+eval_loader = get_loader(data_config, mode='eval')
+test_loader = get_loader(data_config, mode='test')
 
 # build graph, criterion and optimizer
 logger.info("build graph, criterion, optimizer and trainer")
@@ -93,5 +91,4 @@ trainer = CMTtrainer(asset_path, model, criterion, optimizer,
 # start training - add additional train configuration
 logger.info("start training")
 trainer.train(restore_epoch=args.restore_epoch,
-              load_rhythm=args.load_rhythm,
-              lr_schedular=args.lr_scheduler)
+              load_rhythm=args.load_rhythm)

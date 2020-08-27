@@ -5,37 +5,9 @@ import argparse
 import pickle
 import numpy as np
 import pretty_midi as pm
-from progress.bar import Bar
+from tqdm import tqdm
 from scipy.sparse import csc_matrix
 
-duplicate_set = {14, 74, 49, 353, 71, 313, 227, 73, 1328, 106, 134, 150, 317, 153, 340, 170, 311, 315,
-                 1205, 334, 390, 403, 339, 413, 350, 421, 351, 383, 358, 359, 391, 395, 394, 407, 397,
-                 440, 441, 418, 419, 422, 1034, 473, 1069, 442, 461, 525, 806, 531, 878, 533, 1007, 585,
-                 1121, 601, 876, 616, 634, 637, 647, 644, 645, 664, 682, 829, 693, 694, 733, 825, 700, 751,
-                 734, 746, 755, 790, 783, 784, 768, 1008, 794, 1006, 854, 956, 865, 1106, 868, 919, 928,
-                 959, 929, 1199, 940, 1020, 945, 1087, 957, 958, 1136, 970, 1077, 1048, 1139, 1057, 1084,
-                 1126, 1196, 1395, 1198, 1349, 1358, 1380, 1361, 1362}
-
-def make_twotrack_midi(root_path, original_dir='cleansed_split_midi', midi_dir='cleansed_midi_twotrack'):
-    os.makedirs(os.path.join(root_path, midi_dir), exist_ok=True)
-    prefix = original_dir.replace('split_midi', '')
-    for mldy_file in sorted(glob.glob(os.path.join(root_path, original_dir, '*_%schord_processed_melody.midi' % prefix))):
-        if not os.path.exists(mldy_file.replace('_melody.midi', '_chord.midi')):
-            continue
-        midi_mldy = pm.PrettyMIDI(mldy_file)
-        mldy_instrument = midi_mldy.instruments[0]
-        mldy_instrument.name = 'melody'
-
-        chord_file = mldy_file.replace('_melody.midi', '_chord.midi')
-        midi_chord = pm.PrettyMIDI(chord_file)
-        chord_instrument = midi_chord.instruments[0]
-        chord_instrument.name = 'chord'
-
-        new_midi = pm.PrettyMIDI()
-        new_midi.instruments.append(mldy_instrument)
-        new_midi.instruments.append(chord_instrument)
-        new_midi.write(os.path.join(root_path, midi_dir,
-                                    mldy_file.split('/')[-1].replace('_melody.midi', '.midi')))
 
 def pad_pianorolls(pianoroll, timelen):
     if pianoroll.shape[1] < timelen:
@@ -44,45 +16,44 @@ def pad_pianorolls(pianoroll, timelen):
     return pianoroll
 
 
-def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range=48, augmentation=False, dictionary=False,
+def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range=48, augmentation=False,
                             beat_per_bar=4, bpm=120, data_ratio=(0.8, 0.1, 0.1)):
     if augmentation:
         instance_folder = '12aug_instance_pkl_%dbars_fpb%d_%dp' % (num_bars, frame_per_bar, pitch_range)
     else:
         instance_folder = 'instance_pkl_%dbars_fpb%d_%dp_ckey' % (num_bars, frame_per_bar, pitch_range)
-    if not dictionary:
-        instance_folder = instance_folder.replace('pkl_', 'pkl_csc_')
+
     dir_name = os.path.join(root_path, 'pkl_files', instance_folder)
     os.makedirs(dir_name, exist_ok=True)
 
-    song_num_list = [int(name.split('/')[-1][:4]) for name in glob.glob(os.path.join(root_path, 'midi', midi_dir, '*_00_*'))]
     instance_len = frame_per_bar * num_bars
     stride = int(instance_len / 2)
     # Default : frame_per_second=8, unit_time=0.125
     frame_per_second = (frame_per_bar / beat_per_bar) * (bpm / 60)
     unit_time = 1 / frame_per_second
 
-    # midi_files = glob.glob(os.path.join(root_path, midi_dir, '*.midi'))
-    midi_files = glob.glob(os.path.join(root_path, 'midi', midi_dir, '*.midi'))
-    num_eval = int(len(song_num_list) * data_ratio[1])
-    num_test = int(len(song_num_list) * data_ratio[2])
+    song_list = sorted(glob.glob(os.path.join(root_path, midi_dir, '*')))
+    midi_files = sorted(glob.glob(os.path.join(root_path, midi_dir, '*/*.mid')))
+
+    num_eval = int(len(song_list) * data_ratio[1])
+    num_test = int(len(song_list) * data_ratio[2])
     random.seed(0)
-    eval_test_cand = set(song_num_list) - duplicate_set if 'score2midi' in root_path else set(song_num_list)
+    eval_test_cand = set([song.split('/')[-1] for song in song_list])
     eval_set = random.sample(eval_test_cand, num_eval)
     test_set = random.sample(eval_test_cand - set(eval_set), num_test)
 
-    for midi_file in Bar("Processing").iter(sorted(midi_files)):
-        filename = int(midi_file.split('/')[-1].split('.')[0].split('_')[0])
-        key_num = midi_file.split('/')[-1].split('.')[0].split('_')[1]
+    for midi_file in tqdm(midi_files, desc="Processing"):
+        song_title = midi_file.split('/')[-2]
+        filename = midi_file.split('/')[-1].split('.')[0]
 
-        if filename in eval_set:
+        if song_title in eval_set:
             mode = 'eval'
-        elif filename in test_set:
+        elif song_title in test_set:
             mode = 'test'
         else:
             mode = 'train'
-
-        os.makedirs(os.path.join(dir_name, mode, '%04d' % filename), exist_ok=True)
+        os.makedirs(os.path.join(dir_name, mode, song_title), exist_ok=True)
+        key_count = len(sorted(glob.glob(os.path.join(dir_name, mode, song_title, '*_+0_*.pkl')))) # in case of modulation
 
         if augmentation:
             pitch_shift = range(-5, 7)
@@ -116,7 +87,6 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                 if k != 0:
                     chord_note.pitch += k
                 chord_note.end = chord_note.start + unit_time
-            # chord_roll = chord_instrument.get_piano_roll(fs=frame_per_second)
             chord_onset = chord_instrument.get_piano_roll(fs=frame_per_second)
 
             pianoroll = pad_pianorolls(pianoroll, timelen)
@@ -130,17 +100,11 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
             chord_onset[chord_onset > 0] = 1
 
             for i in range(0, timelen - (instance_len + 1), stride):
-                # cnt = 0
                 pitch_list = []
-                # comment out
-                if dictionary:
-                    chord_dict = dict()
-                else:
-                    chord_list = []
+                chord_list = []
 
                 pianoroll_inst = pianoroll[:, i:(i+instance_len+1)]
                 onset_inst = onset_roll[:, i:(i+instance_len+1)]
-                offset_inst = offset_roll[:, i:(i+instance_len+1)]
                 chord_inst = chord_onset[:, i:(i + instance_len + 1)]
 
                 if len(chord_inst.nonzero()[1]) < 4:
@@ -161,15 +125,12 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                     if highest_note - base_note >= pitch_range:
                         continue
 
-                if not dictionary:
-                    prev_chord = np.zeros(12)
+                prev_chord = np.zeros(12)
                 cont_rest = 0
                 prev_onset = 0
                 for t in range(instance_len+1):
                     if t in onset_inst.T.nonzero()[0]:
-                        # TODO: pitch to idx, lowest or highest
                         pitch_list.append(onset_inst[:, t].T.nonzero()[0][0] - base_note)
-                        # pitch_list.append(onset_inst[:, t].T.nonzero()[0][0])
                         if (t != onset_inst.T.nonzero()[0][0]) and abs(onset_inst[:, t].T.nonzero()[0][0] - base_note - prev_onset) > 12:
                             cont_rest = 30
                             break
@@ -187,32 +148,21 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
                         print(filename, i, t, rhythm_idx[t], onset_inst.T.nonzero())
 
                     if len(chord_inst[:, t].nonzero()[0]) != 0:
-                        if dictionary:
-                            chord_dict.update({t: chord_inst[:, t].nonzero()[0][1:]})
-                        else:
-                            prev_chord = np.zeros(12)
-                            for note in sorted(chord_inst[:, t].nonzero()[0][1:] % 12):
-                                prev_chord[note] = 1
-                    if not dictionary:
-                        chord_list.append(prev_chord)
+                        prev_chord = np.zeros(12)
+                        for note in sorted(chord_inst[:, t].nonzero()[0][1:] % 12):
+                            prev_chord[note] = 1
+                    chord_list.append(prev_chord)
 
-                if (dictionary and not chord_dict) or (cont_rest >= 30) or (len(set(pitch_list)) <= 5):
+                if (cont_rest >= 30) or (len(set(pitch_list)) <= 5):
                     continue
 
                 pitch_list = np.array(pitch_list)
-                if dictionary:
-                    chord_result = chord_dict
-                else:
-                    chord_result = csc_matrix(np.array(chord_list))
+                chord_result = csc_matrix(np.array(chord_list))
                 result = {'pitch': pitch_list,
-                          # 'rhythm': rhythm_idx,
-                          'beat': rhythm_idx,
+                          'rhythm': rhythm_idx,
                           'chord': chord_result}
-                if augmentation:
-                    ps = ('%d' % k) if (k < 0) else ('+%d' % k)
-                    pkl_filename = os.path.join(dir_name, mode, '%04d' % filename, '%04d_%s_%s_%02d.pkl' % (filename, ps, key_num, i // stride))
-                else:
-                    pkl_filename = os.path.join(dir_name, mode, '%04d' % filename, '%04d_%s_%02d.pkl' % (filename, key_num, i // stride))
+                ps = ('%d' % k) if (k < 0) else ('+%d' % k)
+                pkl_filename = os.path.join(dir_name, mode, song_title, '%s_%02d_%s_%02d.pkl' % (song_title, key_count, ps, i // stride))
                 with open(pkl_filename, 'wb') as f:
                     pickle.dump(result, f)
 
@@ -220,25 +170,18 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_path', type=str, default='/data2/score2midi')
-    parser.add_argument('--original_dir', type=str, default='cleansed_split_midi')
     parser.add_argument('--midi_dir', type=str, default='cleansed_midi_twotrack_ckey')
     parser.add_argument('--num_bars', type=int, default=8)
     parser.add_argument('--frame_per_bar', type=int, default=16)
     parser.add_argument('--pitch_range', type=int, default=48)
     parser.add_argument('--aug', dest='aug', action='store_true')
-    parser.add_argument('--dictionary', dest='dictionary', action='store_true')
 
     args = parser.parse_args()
     root_path = args.root_path
-    original_dir = args.original_dir
     midi_dir = args.midi_dir
     num_bars = args.num_bars
     frame_per_bar = args.frame_per_bar
     pitch_range = args.pitch_range
     aug = args.aug
-    dictionary = args.dictionary
 
-    if not os.path.exists(os.path.join(root_path, 'midi', midi_dir)):
-        make_twotrack_midi(root_path, original_dir, midi_dir)
-
-    make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range, aug, dictionary)
+    make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range, aug)

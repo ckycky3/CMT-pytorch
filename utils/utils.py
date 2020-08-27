@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch.optim as optim
 from utils import logger
-from utils.tf_logger import TF_Logger
+from tensorboardX import SummaryWriter
 
 
 def get_optimizer(params, lr, config, name='adam'):
@@ -30,12 +30,12 @@ def make_save_dir(save_path, config):
     config.save(os.path.join(save_path, "hparams.yaml"))
 
 
-def get_tflogger(asset_path):
+def get_tfwriter(asset_path):
     now = datetime.datetime.now()
     folder = "run-%s" % now.strftime("%m%d-%H%M%S")
-    tf_logger = TF_Logger(os.path.join(asset_path, 'tensorboard', folder))
+    writer = SummaryWriter(logdir=os.path.join(asset_path, 'tensorboard', folder))
 
-    return tf_logger
+    return writer
 
 
 def print_result(losses, metrics):
@@ -45,14 +45,14 @@ def print_result(losses, metrics):
         logger.info("%s: %.4f" % (name, val))
 
 
-def tensorboard_logging_result(tf_logger, epoch, results):
+def tensorboard_logging_result(tf_writer, epoch, results):
     for tag, value in results.items():
         if 'img' in tag:
-            tf_logger.image_summary(tag, value, epoch)
+            tf_writer.add_image(tag, value, epoch)
         elif 'hist' in tag:
-            tf_logger.histo_summary(tag, value, epoch)
+            tf_writer.add_histogram(tag, value, epoch)
         else:
-            tf_logger.scalar_summary(tag, value, epoch)
+            tf_writer.add_scalar(tag, value, epoch)
 
 
 def pitch_to_midi(pitch, chord, frame_per_bar=16, save_path=None, basis_note=60):
@@ -89,7 +89,6 @@ def pitch_to_midi(pitch, chord, frame_per_bar=16, save_path=None, basis_note=60)
         instrument.notes.append(note)
 
     midi_data.instruments.append(instrument)
-    # midi_data.instruments.append(concat_chord_to_instrument(chord, frame_per_bar=frame_per_bar))
     midi_data.instruments.append(chord_to_instrument(chord, frame_per_bar=frame_per_bar))
     if save_path is not None:
         midi_data.write(save_path)
@@ -106,48 +105,20 @@ def chord_to_instrument(chord_array, frame_per_bar=16):
     for t in range(chord_array.shape[0]):
         if not (chord_array[t] == chord).all():
             chord_notes = chord.nonzero()[0]
-            for root in chord_notes:
-                note = pretty_midi.Note(start=prev_t * unit_time, end=t * unit_time, pitch=48 + root, velocity=70)
+            for pitch in chord_notes:
+                note = pretty_midi.Note(start=prev_t * unit_time, end=t * unit_time, pitch=48 + pitch, velocity=70)
                 instrument.notes.append(note)
             prev_t = t
             chord = chord_array[t]
     chord_notes = chord.nonzero()[0]
-    for root in chord_notes:
-        note = pretty_midi.Note(start=prev_t * unit_time, end=chord_array.shape[0] * unit_time, pitch=48 + root, velocity=70)
+    for pitch in chord_notes:
+        note = pretty_midi.Note(start=prev_t * unit_time, end=chord_array.shape[0] * unit_time, pitch=48 + pitch, velocity=70)
         instrument.notes.append(note)
     return instrument
 
 
-def concat_chord_to_instrument(chord_array, frame_per_bar=16):
-    frame_per_second = (frame_per_bar / 4) * 2
-    unit_time = 1 / frame_per_second
-    instrument = pretty_midi.Instrument(program=0, name='chord')
-    chord = chord_array[0]
-    prev_t = 0
-    for t in range(chord_array.shape[0]):
-        if not (chord_array[t] == chord).all():
-            instrument = chord_to_notes(instrument, chord, prev_t, t, unit_time)
-            prev_t = t
-            chord = chord_array[t]
-    instrument = chord_to_notes(instrument, chord, prev_t, chord_array.shape[0], unit_time)
-    return instrument
-
-def chord_to_notes(instrument, chord, prev_t, current_t, unit_time):
-    basis_note = 48
-    for i, note in enumerate(chord):
-        if note == 12:
-            break
-        elif (i > 1) and (chord[i - 1] > note):
-            basis_note += 12
-        midi_note = pretty_midi.Note(start=prev_t * unit_time, end=current_t * unit_time,
-                                     pitch=basis_note + note, velocity=70)
-        instrument.notes.append(midi_note)
-    return instrument
-
-
-def save_instruments_as_image(filename, instruments, chord=None, frame_per_bar=16, num_bars=8):
+def save_instruments_as_image(filename, instruments, frame_per_bar=16, num_bars=8):
     melody_inst = instruments[0]
-    chord_inst = instruments[1]
     timelen = frame_per_bar * num_bars
     frame_per_second = (frame_per_bar / 4) * 2
     unit_time = 1 / frame_per_second
@@ -179,19 +150,13 @@ def save_instruments_as_image(filename, instruments, chord=None, frame_per_bar=1
         ax = fig.add_subplot(rows, 1, row + 1)
         ax.set_ylim([lowest_pitch, highest_pitch])
         ax.set_xticks(np.arange(frame_per_bar, timelen // rows, frame_per_bar))
-        ax.set_xticklabels(np.arange(row*(timelen // rows) + frame_per_bar, (row+1)*(timelen // rows) + frame_per_bar, frame_per_bar))
+        ax.set_xticklabels(np.arange(row*(timelen // rows) + 2 * frame_per_bar, (row+1)*(timelen // rows) + frame_per_bar, frame_per_bar))
         ax.set_yticks(np.arange(lowest_pitch, highest_pitch, 12))
-        # if chord is not None:
-        #     ax.set_xticklabels(chord*n_repeat, rotation='vertical', fontsize='small')
         ax.set_yticklabels(C_labels)
-        # for t in range(8, 128, 8):
-        #     ax.axvline(x=t, color='r', linewidth=0.5)
         for C_idx in range(12 + lowest_pitch, highest_pitch, 12):
             ax.axhline(y=C_idx, color='b', linewidth=0.5)
         for i in range(num_bars // rows):
             ax.axvline(x=frame_per_bar*(i+1), color='r', linewidth=0.5)
-        # for i in range(1, 128):
-        #     ax.axvline(x=i, color='r', linewidth=0.1)
         plot = plt.imshow((piano_roll + onset_roll)[:, row*(timelen // rows):(row+1)*(timelen // rows)] / 2, interpolation=None, cmap='gray_r')
     plt.savefig(filename)
     plt.close(fig)

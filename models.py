@@ -5,18 +5,16 @@ from torch.autograd import Variable
 from layers import DynamicPositionEmbedding, SelfAttentionBlock
 
 
-class ChordConditionedMusicTransformer(nn.Module):
+class ChordConditionedMelodyTransformer(nn.Module):
     def __init__(self, num_pitch=89, frame_per_bar=16, num_bars=8,
                  chord_emb_size=128, pitch_emb_size=128, hidden_dim=128,
                  key_dim=128, value_dim=128, num_layers=6, num_heads=4,
-                 input_dropout=0.0, layer_dropout=0.0, attention_dropout=0.0,
-                 chord_add=True):
-        super(ChordConditionedMusicTransformer, self).__init__()
+                 input_dropout=0.0, layer_dropout=0.0, attention_dropout=0.0):
+        super(ChordConditionedMelodyTransformer, self).__init__()
 
         self.max_len = frame_per_bar * num_bars
         self.frame_per_bar = frame_per_bar
         self.num_chords = 12
-        self.chord_add = chord_add
         self.num_pitch = num_pitch
         self.num_rhythm = 3
 
@@ -29,13 +27,12 @@ class ChordConditionedMusicTransformer(nn.Module):
         self.hidden_dim = hidden_dim
 
         # embedding layer
-        # self.chord_emb = nn.Embedding(self.num_chords + 1, self.chord_emb_size, padding_idx=12)
         self.chord_emb = nn.Parameter(torch.randn(self.num_chords, self.chord_emb_size,
                                                   dtype=torch.float, requires_grad=True))
         self.rhythm_emb = nn.Embedding(self.num_rhythm, self.rhythm_emb_size)
         self.pitch_emb = nn.Embedding(self.num_pitch, self.pitch_emb_size)
 
-        lstm_input = self.chord_emb_size if chord_add else self.chord_emb_size * 5
+        lstm_input = self.chord_emb_size
         self.chord_lstm = nn.LSTM(lstm_input, self.chord_hidden, num_layers=1,
                                   batch_first=True, bidirectional=True)
         self.rhythm_pos_enc = DynamicPositionEmbedding(self.rhythm_hidden, self.max_len)
@@ -104,7 +101,6 @@ class ChordConditionedMusicTransformer(nn.Module):
             emb = torch.cat([pitch_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
             emb *= torch.sqrt(torch.tensor(self.hidden_dim, dtype=torch.float))
             pitch_output = self.pitch_forward(emb, attention_map)
-            # pitch_output = self.pitch_forward(emb, rhythm_emb, attention_map)
             result['pitch'] = pitch_output['output']
 
             if attention_map:
@@ -115,12 +111,6 @@ class ChordConditionedMusicTransformer(nn.Module):
 
     def chord_forward(self, chord):
         size = chord.size()
-        # if self.chord_add:
-        #     # sum B * T * 5 * D to B * T * D
-        #     chord_emb = torch.sum(self.chord_emb(chord), dim=2)
-        # else:
-        #     # concat B * T * 5 * D to B * T * 5D
-        #     chord_emb = self.chord_emb(chord).view(size[0], size[1], -1)
         chord_emb = torch.matmul(chord.float(), self.chord_emb)
 
         h0, c0 = self.init_lstm_hidden(size[0])
@@ -209,7 +199,6 @@ class ChordConditionedMusicTransformer(nn.Module):
             emb = torch.cat([pitch_emb, chord_hidden[0], chord_hidden[1], rhythm_emb], -1)
             emb *= torch.sqrt(torch.tensor(self.hidden_dim, dtype=torch.float))
             pitch_dict = self.pitch_forward(emb, attention_map)
-            # pitch_dict = self.pitch_forward(emb, rhythm_emb, attention_map)
             if topk is None:
                 idx = torch.argmax(pitch_dict['output'][:, i - 1, :], dim=1)
             else:

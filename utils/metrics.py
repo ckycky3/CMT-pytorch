@@ -62,9 +62,6 @@ def confusion_matrix(out, target):
     return TP, TN, FP, FN
 
 
-def recall(out, target):
-    pass
-
 def overall_accuracy(outs, labels):
     out_pitch, out_voice = outs
     target_pitch, target_voice = labels

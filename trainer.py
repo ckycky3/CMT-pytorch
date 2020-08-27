@@ -106,7 +106,7 @@ class CMTtrainer(BaseTrainer):
                                          device, config)
         # for logging
         self.losses = defaultdict(list)
-        self.tf_logger = get_tflogger(asset_path)
+        self.tf_writer = get_tfwriter(asset_path)
 
     def train(self, **kwargs):
         # load model if exists
@@ -152,10 +152,9 @@ class CMTtrainer(BaseTrainer):
         num_total = 0
         for i, data in enumerate(loader):
             # preprocessing and forwarding
-            # result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
             for key in data.keys():
                 data[key] = data[key].to(self.device)
-            result_dict = self.model(data['beat'], data['pitch'][:, :-1],
+            result_dict = self.model(data['rhythm'], data['pitch'][:, :-1],
                                      data['chord'], False, rhythm_only)
             rhythm_out = result_dict['rhythm']
             rhythm_out = rhythm_out.view(-1, rhythm_out.size(-1))
@@ -168,13 +167,11 @@ class CMTtrainer(BaseTrainer):
             rhythm_criterion = self.criterion[0]
             pitch_criterion = self.criterion[1]
 
-            # rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
-            rhythm_loss = rhythm_criterion(rhythm_out, data['beat'][:, 1:].contiguous().view(-1))
+            rhythm_loss = rhythm_criterion(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1))
             total_rhythm_loss += rhythm_loss.item()
 
             result = dict()
-            # result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
-            result.update(cal_metrics(rhythm_out, data['beat'][:, 1:].contiguous().view(-1),
+            result.update(cal_metrics(rhythm_out, data['rhythm'][:, 1:].contiguous().view(-1),
                                       self.metrics, mode, name='rhythm'))
 
             if rhythm_only:
@@ -209,8 +206,8 @@ class CMTtrainer(BaseTrainer):
                   'nll_pitch' + footer: total_pitch_loss / len(loader),
                   'nll_rhythm' + footer: total_rhythm_loss / len(loader)}
         print_result(losses, results)
-        tensorboard_logging_result(self.tf_logger, epoch, losses)
-        tensorboard_logging_result(self.tf_logger, epoch, results)
+        tensorboard_logging_result(self.tf_writer, epoch, losses)
+        tensorboard_logging_result(self.tf_writer, epoch, results)
 
         self.losses[mode].append((total_rhythm_loss + total_pitch_loss) / len(loader))
         if mode == 'eval':
@@ -230,8 +227,7 @@ class CMTtrainer(BaseTrainer):
             model = self.model.module
         else:
             model = self.model
-        # prime_rhythm = batch['rhythm'][:, :self.config["num_prime"]]
-        prime_rhythm = batch['beat'][:, :self.config["num_prime"]]
+        prime_rhythm = batch['rhythm'][:, :self.config["num_prime"]]
         result_dict = model.sampling(prime_rhythm, prime, batch['chord'],
                                      self.config["topk"], self.config['attention_map'])
         result_key = 'pitch'
@@ -248,7 +244,6 @@ class CMTtrainer(BaseTrainer):
             gt_chord = batch['chord'][:, :-1].cpu().numpy()
             sample_dict = {'pitch': pitch_idx[sample_id],
                            'rhythm': result_dict['rhythm'][sample_id].cpu().numpy(),
-                           # 'chord': chord_array_to_dict(gt_chord[sample_id])}
                            'chord': csc_matrix(gt_chord[sample_id])}
 
 
@@ -265,9 +260,7 @@ class CMTtrainer(BaseTrainer):
             gt_path = os.path.join(asset_path, 'sampling_results', 'epoch_%03d' % epoch,
                                      'epoch%03d_groundtruth%02d.mid' % (epoch, sample_id))
             gt_dict = {'pitch': gt_pitch[sample_id, :-1],
-                       # 'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
-                       'rhythm': batch['beat'][sample_id, :-1].cpu().numpy(),
-                       # 'chord': chord_array_to_dict(gt_chord[sample_id])}
+                       'rhythm': batch['rhythm'][sample_id, :-1].cpu().numpy(),
                        'chord': csc_matrix(gt_chord[sample_id])}
             with open(gt_path.replace('.mid', '.pkl'), 'wb') as f_gt:
                 pickle.dump(gt_dict, f_gt)

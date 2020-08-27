@@ -39,10 +39,6 @@ class DynamicPositionEmbedding(nn.Module):
 
 
 class RelativeMultiHeadAttention(nn.Module):
-    """
-    Multi-head attention with relative positional embeddig as per https://arxiv.org/abs/1809.04281
-    """
-
     def __init__(self, input_dim, key_dim, value_dim, output_dim,
                  max_len, num_heads, preceding_only=True, dropout=0.0):
         """
