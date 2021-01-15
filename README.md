@@ -16,7 +16,7 @@ with Transformer Based Decoders"
   * `layers.py` : self attention block and relative multi-head attention layers
   * `model.py` : implementation of CMT
   * `loss.py` : defines loss functions
-  * `trainer.py` : 
+  * `trainer.py` : utilities for loading, training, and saving models 
   * `run.py` : main code to train CMT
   * `generated samples.zip` : zip file containing 15 generated samples 
   which are used for subjective listening test
