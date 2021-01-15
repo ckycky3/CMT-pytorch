@@ -57,13 +57,13 @@ class BaseTrainer:
             logger.info("no checkpoint with %d epoch" % restore_epoch)
         else:
             if os.path.isfile(restore_ckpt):
-                checkpoint = torch.load(restore_ckpt)
+                checkpoint = torch.load(restore_ckpt, map_location=self.device)
             else:
                 rhythm_asset_path = os.path.join('/'.join(self.asset_path.split('/')[:-1]),
                                                  'idx%03d' % self.config['restore_rhythm']['idx'])
                 rhythm_ckpt = os.path.join(rhythm_asset_path, 'model',
                                            'checkpoint_%d.pth.tar' % self.config['restore_rhythm']['epoch'])
-                checkpoint = torch.load(rhythm_ckpt)
+                checkpoint = torch.load(rhythm_ckpt, map_location=self.device)
             if load_rhythm:
                 model_dict = model.state_dict()
                 rhythm_state_dict = {k: v for k, v in checkpoint['model'].items() if 'rhythm' in k}

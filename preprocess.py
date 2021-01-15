@@ -16,14 +16,14 @@ def pad_pianorolls(pianoroll, timelen):
     return pianoroll
 
 
-def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range=48, augmentation=False,
+def make_instance_pkl_files(root_dir, midi_dir, num_bars, frame_per_bar, pitch_range=48, shift=False,
                             beat_per_bar=4, bpm=120, data_ratio=(0.8, 0.1, 0.1)):
-    if augmentation:
-        instance_folder = '12aug_instance_pkl_%dbars_fpb%d_%dp' % (num_bars, frame_per_bar, pitch_range)
+    if shift:
+        instance_folder = 'instance_pkl_%dbars_fpb%d_%dp_12keys' % (num_bars, frame_per_bar, pitch_range)
     else:
         instance_folder = 'instance_pkl_%dbars_fpb%d_%dp_ckey' % (num_bars, frame_per_bar, pitch_range)
 
-    dir_name = os.path.join(root_path, 'pkl_files', instance_folder)
+    dir_name = os.path.join(root_dir, 'pkl_files', instance_folder)
     os.makedirs(dir_name, exist_ok=True)
 
     instance_len = frame_per_bar * num_bars
@@ -32,8 +32,8 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
     frame_per_second = (frame_per_bar / beat_per_bar) * (bpm / 60)
     unit_time = 1 / frame_per_second
 
-    song_list = sorted(glob.glob(os.path.join(root_path, midi_dir, '*')))
-    midi_files = sorted(glob.glob(os.path.join(root_path, midi_dir, '*/*.mid')))
+    song_list = sorted(glob.glob(os.path.join(root_dir, midi_dir, '*')))
+    midi_files = sorted(glob.glob(os.path.join(root_dir, midi_dir, '*/*.mid')))
 
     num_eval = int(len(song_list) * data_ratio[1])
     num_test = int(len(song_list) * data_ratio[2])
@@ -55,7 +55,7 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
         os.makedirs(os.path.join(dir_name, mode, song_title), exist_ok=True)
         key_count = len(sorted(glob.glob(os.path.join(dir_name, mode, song_title, '*_+0_*.pkl')))) # in case of modulation
 
-        if augmentation:
+        if shift:
             pitch_shift = range(-5, 7)
         else:
             pitch_shift = [0]
@@ -169,19 +169,19 @@ def make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root_path', type=str, default='/data2/score2midi')
+    parser.add_argument('--root_dir', type=str, default='/data2/score2midi')
     parser.add_argument('--midi_dir', type=str, default='cleansed_midi_twotrack_ckey')
     parser.add_argument('--num_bars', type=int, default=8)
     parser.add_argument('--frame_per_bar', type=int, default=16)
     parser.add_argument('--pitch_range', type=int, default=48)
-    parser.add_argument('--aug', dest='aug', action='store_true')
+    parser.add_argument('--shift', dest='shift', action='store_true')
 
     args = parser.parse_args()
-    root_path = args.root_path
+    root_dir = args.root_dir
     midi_dir = args.midi_dir
     num_bars = args.num_bars
     frame_per_bar = args.frame_per_bar
     pitch_range = args.pitch_range
-    aug = args.aug
+    shift = args.shift
 
-    make_instance_pkl_files(root_path, midi_dir, num_bars, frame_per_bar, pitch_range, aug)
+    make_instance_pkl_files(root_dir, midi_dir, num_bars, frame_per_bar, pitch_range, shift)

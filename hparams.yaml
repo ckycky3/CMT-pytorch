@@ -28,19 +28,18 @@ experiment:
   attention_map: False
   rhythm_only: False
   restore_rhythm:
-    idx: 30
-    epoch: 40
+    idx: 1
+    epoch: 100
 
 model:
   num_pitch: 50
   frame_per_bar: 16
-  num_bars: 16
+  num_bars: 8
   chord_emb_size: 128
   pitch_emb_size: 256
   hidden_dim: 512
   key_dim: 512
   value_dim: 512
-  chord_add: True
   input_dropout: 0.2
   layer_dropout: 0.2
   attention_dropout: 0.2

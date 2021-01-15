@@ -173,7 +173,7 @@ def idx_list_to_symbol_list(idx_list):
         else:
             octave = event_idx // 12 + 3
             root_note = event_idx % 12
-            symbol =  '%03d,%s%d' % (i + 1, root_note_list[root_note], octave)
+            symbol = '%03d,%s%d' % (i + 1, root_note_list[root_note], octave)
         symbol_list.append(symbol)
     return symbol_list
 
@@ -217,7 +217,7 @@ def pitch_to_symbol_list(pitch_list):
         else:
             octave = (pitch + 20) // 12 - 2
             root_note = (pitch + 20) % 12
-            symbol =  '%03d,%s%d' % (i + 1, root_note_list[root_note], octave)
+            symbol = '%03d,%s%d' % (i + 1, root_note_list[root_note], octave)
         symbol_list.append(symbol)
     return symbol_list
 
@@ -226,24 +226,22 @@ def chord_dict_to_array(chord_dict, max_len):
     chord = []
     next_t = max_len
     for t in sorted(chord_dict.keys(), reverse=True):
-        chord_array = chord_dict[t] % 12
-        num_notes = chord_array.size
-        if num_notes < 5:
-            chord_array = np.concatenate((chord_array, np.repeat(12, 5 - num_notes)))
-        chord_array = np.tile(chord_array[:5], (next_t - t, 1))
+        chord_array = np.zeros(12)
+        for note in chord_dict[t] % 12:
+            chord_array[note] = 1
+        chord_array = np.tile(chord_array, (next_t - t, 1))
         chord.append(chord_array)
         next_t = t
     if next_t != 0:
-        chord.append(np.tile(np.repeat(12, 5), (next_t, 1)))
+        chord.append(np.tile(np.zeros(12), (next_t, 1)))
     chord = np.concatenate(chord)[::-1]
     return chord
 
 def chord_array_to_dict(chord_array):
-    chord_dict= dict()
-    chord = np.repeat(12, 5)
+    chord_dict = dict()
+    chord = np.zeros(12)
     for t in range(chord_array.shape[0]):
         if not (chord_array[t] == chord).all():
+            chord_dict[t] = chord_array[t].nonzero()[0]
             chord = chord_array[t]
-            note_list = list(filter(lambda x: x != 12, chord))
-            chord_dict[t] = np.array(note_list)
     return chord_dict

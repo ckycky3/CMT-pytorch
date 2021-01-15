@@ -167,12 +167,12 @@ class ChordConditionedMelodyTransformer(nn.Module):
 
         # batch_size * prime_len * num_outputs
         batch_size = prime_pitch.size(0)
-        pad_length = self.max_len - prime_pitch.size(1)
+        pad_length = self.max_len - prime_rhythm.size(1)
         rhythm_pad = torch.zeros([batch_size, pad_length], dtype=torch.long).to(prime_rhythm.device)
         rhythm_result = torch.cat([prime_rhythm, rhythm_pad], dim=1)
 
         # sampling phase
-        for i in range(prime_pitch.size(1), self.max_len):
+        for i in range(prime_rhythm.size(1), self.max_len):
             rhythm_dec_result = self.rhythm_forward(rhythm_result, chord_hidden, attention_map, masking=True)
             rhythm_out = self.rhythm_outlayer(rhythm_dec_result['output'])
             rhythm_out = self.log_softmax(rhythm_out)
@@ -191,6 +191,7 @@ class ChordConditionedMelodyTransformer(nn.Module):
         rhythm_enc_dict = self.rhythm_forward(rhythm_temp, chord_hidden, attention_map, masking=False)
         rhythm_emb = rhythm_enc_dict['output']
 
+        pad_length = self.max_len - prime_pitch.size(1)
         pitch_pad = torch.ones([batch_size, pad_length], dtype=torch.long).to(prime_pitch.device)
         pitch_pad *= (self.num_pitch - 1)
         pitch_result = torch.cat([prime_pitch, pitch_pad], dim=1)
