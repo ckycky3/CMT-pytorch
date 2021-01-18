@@ -41,7 +41,7 @@ $ python preprocess.py
   * Midi files should be located under `$ROOT_DIR/MIDI_DIR`
   * `NUMBER_OF_BARS`: number of bars to generate. Default is 8
   * `FRAME_PER_BAR`: number of unit notes in a bar. Default is 16 (16th note, time signature 4/4)
-  * `PITCH_RANGE`: MIDI pitch range. Default is 48 (12 octaves)
+  * `PITCH_RANGE`: MIDI pitch range. Default is 48 (4 octaves)
   
 To shift the pitch of melody and chords in 12 different keys, 
 add argument `--shift` to the command line above.
